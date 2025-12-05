@@ -30,7 +30,19 @@
     }
     #controls button{cursor:pointer}
     #addBossForm{display:none; margin-top:8px; background:rgba(0,0,0,0.6); padding:8px; border-radius:6px;}
-    #boss{max-width:400px; max-height:400px; width:auto; height:auto; display:block; margin:70px auto 6px auto; image-rendering:pixelated; z-index:10;}
+    #boss{max-width:400px; max-height:400px; width:auto; height:auto; display:block; margin:40px auto 6px auto; image-rendering:pixelated; z-index:10;}
+    #mvpDisplay{
+      display:none;
+      width:100%;
+      text-align:center;
+      margin:40px auto 6px auto;
+      color:var(--ui-white);
+      font-size:20px;
+      z-index:11;
+      pointer-events:none;
+      text-shadow:4px 4px 0 #000;
+    }
+    #mvpName{font-size:28px; font-weight:bold; color:#ffd700; text-shadow:6px 6px 0 #000;}
     #healthBarContainer{width:var(--bar-width); height:var(--bar-height); margin:6px auto; position:relative; background:#222; border:4px solid #000; border-radius:4px; overflow:hidden;}
     #healthBar{height:100%; width:100%; background:linear-gradient(90deg,var(--hp-grad-start),var(--hp-grad-end)); transition:width .28s linear;}
     #healthBarContainer::before{content:""; position:absolute; left:0; top:0; right:0; bottom:0; background-image:linear-gradient(transparent 50%, rgba(0,0,0,0.06) 50%); background-size:100% 4px; pointer-events:none; mix-blend-mode:overlay;}
@@ -62,7 +74,6 @@
       <button id="publishBtn" title="Push selected boss and settings to viewers">Publish</button>
     </div>
 
-    <!-- Damage Controls -->
     <span class="sectionTitle">Damage Controls</span>
 
     <div class="inlineRow">
@@ -138,6 +149,12 @@
 
   <!-- Overlay display -->
   <img id="boss" src="" alt="Boss">
+  <div id="mvpDisplay">
+    <div id="mvpLabel">🏆 MVP</div>
+    <div id="mvpName"></div>
+    <div id="mvpDamage" style="font-size:14px; margin-top:6px;"></div>
+  </div>
+
   <div id="healthBarContainer">
     <div id="healthBar"></div>
     <div id="healthPercent">100%</div>
@@ -163,6 +180,9 @@
 
     // Elements
     const bossImg = document.getElementById('boss');
+    const mvpDisplay = document.getElementById('mvpDisplay');
+    const mvpNameEl = document.getElementById('mvpName');
+    const mvpDamageEl = document.getElementById('mvpDamage');
     const bossSelector = document.getElementById('bossSelector');
     const healthBar = document.getElementById('healthBar');
     const healthPercent = document.getElementById('healthPercent');
@@ -248,7 +268,7 @@
     function getDefaultSettings() {
       return {
         likesPerTrigger: 50,
-        likeMode: 'random', // 'random' or 'fixed'
+        likeMode: 'random',
         likeFixedDamage: 3,
         followDamage: 8,
         shareDamage: 8,
@@ -282,17 +302,25 @@
     }
 
     function showDamage() {
+      if (bossState.health <= 0) {
+        // boss defeated: hide boss image and show MVP
+        bossImg.style.display = 'none';
+        showMVP();
+        return;
+      }
+      // normal behavior
       if (publishedPayload && (publishedPayload.damageData || publishedPayload.normalData)) {
         bossImg.src = publishedPayload.damageData || publishedPayload.normalData || TRANSPARENT_1PX;
-        setTimeout(()=> { bossImg.src = publishedPayload.normalData || TRANSPARENT_1PX; }, 500);
+        setTimeout(()=> { if (bossState.health > 0) bossImg.src = publishedPayload.normalData || TRANSPARENT_1PX; }, 500);
         return;
       }
       const selected = bossSelector.value;
       bossImg.src = getDamageSrc(selected);
-      setTimeout(()=> bossImg.src = getNormalSrc(selected), 500);
+      setTimeout(()=> { if (bossState.health > 0) bossImg.src = getNormalSrc(selected); }, 500);
     }
 
     function applyDamage(amount, user='Viewer', source='Attack') {
+      if (bossState.health <= 0) return; // already defeated
       bossState.health -= amount;
       if (bossState.health < 0) bossState.health = 0;
       damageLog[user] = (damageLog[user] || 0) + amount;
@@ -310,11 +338,37 @@
       const sorted = Object.entries(damageLog).sort((a,b)=> b[1]-a[1]);
       if (sorted.length) {
         const [mvp, dmg] = sorted[0];
-        setTimeout(()=> damageText.textContent = `🏆 MVP: ${mvp} with ${dmg} total damage!`, 1500);
+        setTimeout(()=> {
+          damageText.textContent = `🏆 MVP: ${mvp} with ${dmg} total damage!`;
+          showMVP();
+        }, 1500);
+      } else {
+        setTimeout(()=> showMVP(), 1500);
       }
     }
 
-    // Resize and convert to dataURL
+    function showMVP() {
+      const sorted = Object.entries(damageLog).sort((a,b)=> b[1]-a[1]);
+      if (sorted.length) {
+        const [mvp, dmg] = sorted[0];
+        mvpNameEl.textContent = mvp;
+        mvpDamageEl.textContent = `${dmg} damage`;
+      } else {
+        mvpNameEl.textContent = 'No contributors';
+        mvpDamageEl.textContent = '';
+      }
+      // hide boss image and show MVP block
+      bossImg.style.display = 'none';
+      mvpDisplay.style.display = 'block';
+    }
+
+    function hideMVP() {
+      mvpDisplay.style.display = 'none';
+      mvpNameEl.textContent = '';
+      mvpDamageEl.textContent = '';
+      bossImg.style.display = 'block';
+    }
+
     function resizeImageFileToDataURL(file, maxDim=800, mime='image/png', quality=0.9) {
       return new Promise((resolve,reject)=>{
         const img = new Image();
@@ -342,7 +396,6 @@
       });
     }
 
-    // Publish selected boss, style, and settings
     function publishSelectedBoss() {
       const key = bossSelector.value;
       if (!key) { alert('No boss selected'); return; }
@@ -357,13 +410,19 @@
       localStorage.setItem(KEY_STYLE, JSON.stringify(getStyle()));
       localStorage.setItem(KEY_SETTINGS, JSON.stringify(overlaySettings));
       publishedPayload = payload;
+      // reset runtime state for new publish
+      bossState.maxHealth = payload.maxHealth || 1000;
+      bossState.health = bossState.maxHealth;
+      damageLog = {};
+      hideMVP();
+      updateLeaderboard();
+      updateHealthBar();
       try {
         window.dispatchEvent(new StorageEvent('storage', { key: KEY_PUBLISHED, newValue: JSON.stringify(payload) }));
       } catch (e) {}
       alert('Published to viewers');
     }
 
-    // Import / Export
     function exportBosses() {
       const data = JSON.stringify(bosses, null, 2);
       const blob = new Blob([data], {type:'application/json'});
@@ -390,7 +449,6 @@
       reader.readAsText(file);
     }
 
-    // Style management
     function getStyle() {
       const stored = JSON.parse(localStorage.getItem(KEY_STYLE) || '{}');
       return {
@@ -432,7 +490,6 @@
       alert('Style reset');
     }
 
-    // Save settings UI -> overlaySettings
     function saveSettingsFromUI() {
       overlaySettings.likesPerTrigger = Math.max(1, parseInt(likesPerTrigger.value,10) || 1);
       overlaySettings.likeMode = likeMode.value === 'fixed' ? 'fixed' : 'random';
@@ -451,7 +508,6 @@
       alert('Settings reset to defaults');
     }
 
-    // Init socket (silent)
     function initSocket() {
       const wsHost = localStorage.getItem(KEY_WS) || 'localhost:21213';
       try {
@@ -466,7 +522,6 @@
       } catch (e) { console.warn('WebSocket init failed', e); }
     }
 
-    // Event handling using overlaySettings
     function handleEvent(eventType, payload={}) {
       if (!overlaySettings || !overlaySettings.likesPerTrigger) ensureSettings();
       switch (eventType) {
@@ -478,7 +533,7 @@
             if (overlaySettings.likeMode === 'fixed') {
               dmg = overlaySettings.likeFixedDamage;
             } else {
-              dmg = Math.floor(Math.random()*6) + 1; // 1-6
+              dmg = Math.floor(Math.random()*6) + 1;
             }
             dmg = Math.round(dmg * overlaySettings.difficultyMultiplier);
             applyDamage(dmg, payload.user || 'Viewer', 'Like Roll');
@@ -501,7 +556,6 @@
       }
     }
 
-    // Storage listener for published boss/settings/style
     window.addEventListener('storage', (e) => {
       if (e.key === KEY_PUBLISHED && e.newValue) {
         try { const payload = JSON.parse(e.newValue); loadPublished(payload); } catch (err) { console.warn('Invalid published payload', err); }
@@ -514,20 +568,20 @@
       }
     });
 
-    // Load published boss payload into overlay (viewer)
     function loadPublished(payload) {
       if (!payload) return;
       publishedPayload = payload;
       bossState.maxHealth = payload.maxHealth || 1000;
       bossState.health = bossState.maxHealth;
       damageLog = {};
+      hideMVP();
       updateLeaderboard();
       updateHealthBar();
       damageText.textContent = '';
       bossImg.src = payload.normalData || TRANSPARENT_1PX;
+      bossImg.style.display = 'block';
     }
 
-    // On load, if published exists, load it
     function initFromPublished() {
       const pub = localStorage.getItem(KEY_PUBLISHED);
       if (pub) {
@@ -549,7 +603,6 @@
       ensureSettings();
     }
 
-    // UI wiring
     addBossBtn.addEventListener('click', ()=> addBossForm.style.display = addBossForm.style.display === 'none' ? 'block' : 'none');
     cancelAddBtn.addEventListener('click', ()=> { addBossForm.style.display='none'; newBossNameInput.value=''; newBossNormalInput.value=''; newBossDamageInput.value=''; });
 
@@ -591,7 +644,16 @@
       resetBoss();
     });
 
-    resetBtn.addEventListener('click', resetBoss);
+    resetBtn.addEventListener('click', ()=> {
+      // Reset clears current boss state and hides MVP
+      resetBoss();
+      hideMVP();
+      // If a published payload exists, reload it so viewers sync
+      const pub = localStorage.getItem(KEY_PUBLISHED);
+      if (pub) {
+        try { loadPublished(JSON.parse(pub)); } catch(e){console.warn(e);}
+      }
+    });
     bossSelector.addEventListener('change', resetBoss);
 
     publishBtn.addEventListener('click', publishSelectedBoss);
@@ -615,30 +677,29 @@
     });
     clearWsHostBtn.addEventListener('click', ()=> { localStorage.removeItem(KEY_WS); wsHostInput.value='localhost:21213'; alert('Cleared host'); location.reload(); });
 
-    // Demo click to apply damage
     document.body.addEventListener('click', (e)=>{
       if (e.target.closest('#controls')) return;
       const dmg = Math.floor(Math.random()*6)+1;
       applyDamage(dmg, 'DemoUser', 'Test Click');
     });
 
-    // Reset boss loads selected boss into working state
     function resetBoss() {
       const selected = bossSelector.value;
       bossState.maxHealth = parseInt(healthInput.value,10) > 0 ? parseInt(healthInput.value,10) : 1000;
       bossState.health = bossState.maxHealth;
       damageLog = {};
+      likeCounter = 0;
       updateLeaderboard();
       updateHealthBar();
       damageText.textContent = '';
+      hideMVP();
       bossImg.src = selected ? getNormalSrc(selected) : TRANSPARENT_1PX;
+      bossImg.style.display = 'block';
     }
 
     // Test button handlers
     testLikeBtn.addEventListener('click', ()=> {
-      // simulate likes so a single press triggers the like rule
       if (!overlaySettings || !overlaySettings.likesPerTrigger) ensureSettings();
-      // set counter to one less than trigger then send one like
       likeCounter = Math.max(0, overlaySettings.likesPerTrigger - 1);
       handleEvent('like', { user: 'TestLike' });
     });
@@ -667,4 +728,6 @@
   </script>
 </body>
 </html>
+
+
 
