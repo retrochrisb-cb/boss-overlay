@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Boss Fight Overlay — Admin + Base64 + Resize</title>
+
+  <!-- Pixel font -->
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --bar-width: 400px;
+      --bar-height: 34px;
+      --pixel-font: 'Press Start 2P', monospace;
+      --bg-overlay: rgba(0,0,0,0.55);
+      --ui-white: #ffffff;
+      --hp-grad-start: #ff6b6b;
+      --hp-grad-end: #8b0000;
+    }
+
+    html,body{
+      height:100%;
+      margin:0;
+      background: transparent;
+      font-family: var(--pixel-font);
+      -webkit-font-smoothing: none;
+      -moz-osx-font-smoothing: grayscale;
+      user-select: none;
+    }
+
+    /* Controls box (hidden unless ?admin=1) */
+    #controls{
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: var(--bg-overlay);
+      color: var(--ui-white);
+      padding: 10px;
+      border-radius: 6px;
+      z-index: 50;
+      font-size: 12px;
+      line-height: 1.2;
+    }
+    #controls select, #controls input, #controls button {
+      font-family: var(--pixel-font);
+      font-size: 11px;
+      padding: 6px 8px;
+      margin: 4px 6px 4px 0;
+      border-radius: 4px;
+      border: none;
+      background: #222;
+      color: #fff;
+      outline: none;
+    }
+    #controls button { cursor: pointer; }
+
+    #addBossForm { display:none; margin-top:8px; background: rgba(0,0,0,0.6); padding:8px; border-radius:6px; }
+    #addBossForm .row { margin: 6px 0; }
+    #addBossForm input[type="text"]{ width:200px; padding:6px; margin:4px 0; font-size:11px; }
+
+    /* Boss image — auto-resize for large PNGs */
+    #boss {
+      max-width: 400px;
+      max-height: 400px;
+      width: auto;
+      height: auto;
+      display: block;
+      margin: 70px auto 6px auto;
+      image-rendering: pixelated;
+      image-rendering: -moz-crisp-edges;
+      image-rendering: crisp-edges;
+      z-index: 10;
+    }
+
+    /* Health bar container (16-bit style) */
+    #healthBarContainer {
+      width: var(--bar-width);
+      height: var(--bar-height);
+      margin: 6px auto;
+      position: relative;
+      background: #222;
+      border: 4px solid #000;
+      box-shadow: 0 0 0 3px rgba(255,255,255,0.03) inset;
+      border-radius: 4px;
+      overflow: hidden;
+      image-rendering: pixelated;
+    }
+
+    /* Inner bar */
+    #healthBar {
+      height: 100%;
+      width: 100%;
+      background: linear-gradient(90deg, var(--hp-grad-start), var(--hp-grad-end));
+      transition: width 0.28s linear;
+      box-shadow: 0 0 0 2px rgba(0,0,0,0.25) inset;
+    }
+
+    /* Scanline overlay for retro vibe */
+    #healthBarContainer::before{
+      content: "";
+      position: absolute;
+      left: 0; top: 0; right: 0; bottom: 0;
+      background-image:
+        linear-gradient(transparent 50%, rgba(0,0,0,0.06) 50%),
+        linear-gradient(90deg, rgba(255,255,255,0.02), rgba(0,0,0,0.02));
+      background-size: 100% 4px, 100% 100%;
+      pointer-events: none;
+      mix-blend-mode: overlay;
+    }
+
+    /* Percentage label */
+    #healthPercent {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%,-50%);
+      color: #fff;
+      font-family: var(--pixel-font);
+      font-size: 12px;
+      text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;
+      pointer-events: none;
+      z-index: 20;
+      letter-spacing: 1px;
+    }
+
+    #damageText {
+      color: #fff;
+      font-family: var(--pixel-font);
+      font-size: 12px;
+      text-align: center;
+      margin-top: 6px;
+      text-shadow: 2px 2px 0 #000, -1px -1px 0 #000;
+      min-height: 22px;
+    }
+
+    #leaderboard {
+      color: #fff;
+      font-family: var(--pixel-font);
+      font-size: 12px;
+      text-align: center;
+      margin-top: 8px;
+      text-shadow: 2px 2px 0 #000;
+    }
+
+    @media (max-width: 420px){
+      #boss { max-width: 320px; max-height: 320px; }
+      #healthBarContainer { width: 320px; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Admin controls (hidden for viewers unless ?admin=1) -->
+  <div id="controls">
+    <label for="bossSelector">Boss:</label>
+    <select id="bossSelector"></select>
+
+    <label for="healthInput">Health:</label>
+    <input type="number" id="healthInput" value="1000" min="1" />
+
+    <button id="resetBtn">Reset</button>
+    <button id="addBossBtn">Add Boss</button>
+    <button id="deleteBossBtn">Delete</button>
+
+    <!-- TikFinity host config (no on-stream status) -->
+    <div class="row">
+      <label for="wsHostInput">TikFinity Host</label>
+      <input id="wsHostInput" type="text" placeholder="localhost:21213" style="font-family: monospace; width:160px;" />
+      <button id="saveWsHostBtn">Save</button>
+      <button id="clearWsHostBtn">Clear</button>
+    </div>
+
+    <!-- Add Boss Form -->
+    <div id="addBossForm">
+      <div class="row"><input id="newBossName" type="text" placeholder="Boss Name" /></div>
+      <div class="row">Normal PNG: <input id="newBossNormal" type="file" accept="image/png" /></div>
+      <div class="row">Damage PNG: <input id="newBossDamage" type="file" accept="image/png" /></div>
+      <div class="row"><button id="saveBossBtn">Save Boss</button></div>
+      <div style="font-size:10px; opacity:0.9; margin-top:6px;">Images are resized and embedded as base64 so Streamlabs and GitHub Pages display them reliably.</div>
+    </div>
+  </div>
+
+  <!-- Boss sprite -->
+  <img id="boss" src="" alt="Boss">
+
+  <!-- Health bar -->
+  <div id="healthBarContainer">
+    <div id="healthBar"></div>
+    <div id="healthPercent">100%</div>
+  </div>
+
+  <!-- Damage + leaderboard -->
+  <div id="damageText"></div>
+  <div id="leaderboard"></div>
+
+  <script>
+    // Hide admin controls unless ?admin=1
+    window.addEventListener('DOMContentLoaded', () => {
+      const params = new URLSearchParams(window.location.search);
+      const isAdmin = params.get('admin') === '1';
+      const controls = document.getElementById('controls');
+      if (!isAdmin && controls) controls.style.display = 'none';
+    });
+
+    // Bosses in localStorage (base64)
+    let bosses = JSON.parse(localStorage.getItem("bosses")) || {};
+
+    // State
+    let boss = { health: 1000, maxHealth: 1000 };
+    let likeCounter = 0;
+    let damageLog = {};
+
+    // Elements
+    const bossImg = document.getElementById("boss");
+    const bossSelector = document.getElementById("bossSelector");
+    const healthBar = document.getElementById("healthBar");
+    const healthPercent = document.getElementById("healthPercent");
+    const damageText = document.getElementById("damageText");
+    const leaderboard = document.getElementById("leaderboard");
+    const resetBtn = document.getElementById("resetBtn");
+    const healthInput = document.getElementById("healthInput");
+    const addBossBtn = document.getElementById("addBossBtn");
+    const addBossForm = document.getElementById("addBossForm");
+    const saveBossBtn = document.getElementById("saveBossBtn");
+    const deleteBossBtn = document.getElementById("deleteBossBtn");
+    const newBossNameInput = document.getElementById("newBossName");
+    const newBossNormalInput = document.getElementById("newBossNormal");
+    const newBossDamageInput = document.getElementById("newBossDamage");
+    const wsHostInput = document.getElementById('wsHostInput');
+    const saveWsHostBtn = document.getElementById('saveWsHostBtn');
+    const clearWsHostBtn = document.getElementById('clearWsHostBtn');
+
+    // Populate dropdown
+    function populateBosses(){
+      bossSelector.innerHTML = "";
+      const keys = Object.keys(bosses);
+      for (let key of keys){
+        const opt = document.createElement("option");
+        opt.value = key;
+        opt.textContent = (bosses[key].name || key).replace(/_/g," ");
+        bossSelector.appendChild(opt);
+      }
+      if (keys.length) bossSelector.value = keys[0];
+    }
+
+    // Fallback tiny transparent PNG data URL
+    const TRANSPARENT_1PX = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=';
+
+    // Resolve image src: prefer base64, fallback to transparent
+    function getNormalSrc(key) {
+      const b = bosses[key] || {};
+      return b.normalData || TRANSPARENT_1PX;
+    }
+    function getDamageSrc(key) {
+      const b = bosses[key] || {};
+      return b.damageData || getNormalSrc(key);
+    }
+
+    function resetBoss(){
+      const selected = bossSelector.value;
+      boss.maxHealth = parseInt(healthInput.value, 10) > 0 ? parseInt(healthInput.value, 10) : 1000;
+      boss.health = boss.maxHealth;
+      damageLog = {};
+      updateLeaderboard();
+      updateHealthBar();
+      damageText.textContent = "";
+      bossImg.src = selected ? getNormalSrc(selected) : TRANSPARENT_1PX;
+    }
+
+    // Toggle add boss form
+    addBossBtn.addEventListener("click", () => {
+      addBossForm.style.display = addBossForm.style.display === "none" ? "block" : "none";
+    });
+
+    // Resize image file to dataURL with max dimension
+    function resizeImageFileToDataURL(file, maxDim = 800, mime = 'image/png', quality = 0.9) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        const reader = new FileReader();
+        reader.onload = () => {
+          img.onload = () => {
+            let { width, height } = img;
+            if (width > maxDim || height > maxDim) {
+              const ratio = width / height;
+              if (ratio > 1) { width = maxDim; height = Math.round(maxDim / ratio); }
+              else { height = maxDim; width = Math.round(maxDim * ratio); }
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, width, height);
+            ctx.drawImage(img, 0, 0, width, height);
+            const dataUrl = canvas.toDataURL(mime, quality);
+            resolve(dataUrl);
+          };
+          img.onerror = reject;
+          img.src = reader.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // Save new boss with resizing + base64
+    saveBossBtn.addEventListener("click", async () => {
+      const nameRaw = newBossNameInput.value.trim();
+      const normalFile = newBossNormalInput.files[0];
+      const damageFile = newBossDamageInput.files[0];
+
+      if (!nameRaw || !normalFile || !damageFile) {
+        alert("Please enter a name and select both PNG files.");
+        return;
+      }
+
+      try {
+        const MAX_DIM = 800;      // reduce to 512 if you want smaller
+        const QUALITY = 0.9;
+
+        const [normalData, damageData] = await Promise.all([
+          resizeImageFileToDataURL(normalFile, MAX_DIM, 'image/png', QUALITY),
+          resizeImageFileToDataURL(damageFile, MAX_DIM, 'image/png', QUALITY)
+        ]);
+
+        const approxKb = Math.round((normalData.length + damageData.length) * 3 / 4 / 1024);
+        if (approxKb > 4000) {
+          if (!confirm(`Embedded images total ~${approxKb} KB. This may be large for localStorage. Continue?`)) {
+            return;
+          }
+        }
+
+        const key = nameRaw.replace(/\s+/g,"_");
+        bosses[key] = { name: nameRaw, normalData, damageData };
+
+        localStorage.setItem("bosses", JSON.stringify(bosses));
+        populateBosses();
+        bossSelector.value = key;
+        addBossForm.style.display = "none";
+        newBossNameInput.value = "";
+        newBossNormalInput.value = "";
+        newBossDamageInput.value = "";
+        resetBoss();
+        alert('Boss saved.');
+      } catch (e) {
+        console.error('Image processing failed', e);
+        alert('Failed to process images. Try smaller PNGs or different files.');
+      }
+    });
+
+    // Delete boss
+    deleteBossBtn.addEventListener("click", () => {
+      const selected = bossSelector.value;
+      if (!selected) return;
+      const keys = Object.keys(bosses);
+      if (keys.length <= 1) {
+        alert("You must keep at least one boss.");
+        return;
+      }
+      if (confirm(`Delete boss "${(bosses[selected].name || selected).replace(/_/g," ")}"? This cannot be undone.`)) {
+        delete bosses[selected];
+        localStorage.setItem("bosses", JSON.stringify(bosses));
+        populateBosses();
+        resetBoss();
+      }
+    });
+
+    // Change selection / reset
+    resetBtn.addEventListener("click", resetBoss);
+    bossSelector.addEventListener("change", resetBoss);
+
+    // Show damage PNG briefly
+    function showDamage(){
+      const selected = bossSelector.value;
+      bossImg.src = getDamageSrc(selected);
+      setTimeout(()=> { bossImg.src = getNormalSrc(selected); }, 500);
+    }
+
+    // Apply damage and update visuals + logs
+    function applyDamage(amount, user = "Viewer", source = "Attack"){
+      boss.health -= amount;
+      if (boss.health < 0) boss.health = 0;
+      damageLog[user] = (damageLog[user] || 0) + amount;
+      updateHealthBar();
+      damageText.textContent = `${user} dealt ${amount} damage with ${source}!`;
+      showDamage();
+      updateLeaderboard();
+      if (boss.health <= 0){
+        damageText.textContent = "⚔️ Boss Defeated! ⚔️";
+        announceMVP();
+      }
+    }
+
+    // Update health bar width and percentage
+    function updateHealthBar(){
+      const percent = Math.max(0, Math.round((boss.health / boss.maxHealth) * 100));
+      healthBar.style.width = percent + "%";
+      healthPercent.textContent = percent + "%";
+      if (percent <= 25) {
+        healthBar.style.background = "linear-gradient(90deg, #ffb74d, #ff6b6b)";
+      } else {
+        healthBar.style.background = "linear-gradient(90deg, var(--hp-grad-start), var(--hp-grad-end))";
+      }
+    }
+
+    // Leaderboard (top 3)
+    function updateLeaderboard(){
+      const sorted = Object.entries(damageLog).sort((a,b) => b[1] - a[1]);
+      const top3 = sorted.slice(0,3);
+      leaderboard.innerHTML = "<b>🏆 Leaderboard</b><br>" + (top3.length ? top3.map((r,i)=> `${i+1}. ${r[0]}: ${r[1]} dmg`).join("<br>") : "No damage yet");
+    }
+
+    // MVP announcement
+    function announceMVP(){
+      const sorted = Object.entries(damageLog).sort((a,b) => b[1] - a[1]);
+      if (sorted.length > 0){
+        const [mvp, maxDamage] = sorted[0];
+        setTimeout(()=> {
+          damageText.textContent = `🏆 MVP: ${mvp} with ${maxDamage} total damage!`;
+        }, 1500);
+      }
+    }
+
+    // TikFinity host config (admin only, no visible status on stream)
+    wsHostInput.value = localStorage.getItem('tf_ws_host') || 'localhost:21213';
+    saveWsHostBtn.addEventListener('click', () => {
+      const v = wsHostInput.value.trim();
+      if (v) {
+        localStorage.setItem('tf_ws_host', v);
+        alert('Saved WebSocket host: ' + v + '. Reload overlay to apply.');
+        location.reload();
+      }
+    });
+    clearWsHostBtn.addEventListener('click', () => {
+      localStorage.removeItem('tf_ws_host');
+      wsHostInput.value = 'localhost:21213';
+      alert('Cleared host. Overlay will use localhost on next load.');
+      location.reload();
+    });
+
+    // WebSocket connection (no on-stream status text)
+    function initSocket() {
+      const wsHost = localStorage.getItem('tf_ws_host') || 'localhost:21213';
+      try {
+        const socket = new WebSocket(`ws://${wsHost}/`);
+        socket.onmessage = (event) => {
+          try {
+            const payload = JSON.parse(event.data);
+            handleEvent(payload.event, payload.data);
+          } catch (e) {
+            console.warn('Invalid event data:', e);
+          }
+        };
+        socket.onerror = (e) => console.warn('WebSocket error:', e);
+      } catch (e) {
+        console.warn('WebSocket init failed:', e);
+      }
+    }
+
+    // Damage rules
+    function handleEvent(eventType, payload = {}){
+      switch (eventType) {
+        case "like":
+          likeCounter++;
+          if (likeCounter >= 50) {
+            likeCounter = 0;
+            const damage = Math.floor(Math.random() * 6) + 1;
+            applyDamage(damage, payload.user || "Viewer", "Like Roll");
+          }
+          break;
+        case "follow":
+        case "share":
+          applyDamage(8, payload.user || "Viewer", eventType);
+          break;
+        case "gift":
+          const coins = payload.coinCount || payload.coins || 1;
+          const giftName = payload.giftName || payload.gift || "Gift";
+          applyDamage(coins * 10, payload.user || "Viewer", giftName);
+          break;
+      }
+    }
+
+    // Demo: click to simulate D6 hit
+    document.body.addEventListener("click", () => {
+      const damage = Math.floor(Math.random() * 6) + 1;
+      applyDamage(damage, "DemoUser", "Test Click");
+    });
+
+    // Init
+    populateBosses();
+    window.addEventListener('DOMContentLoaded', () => {
+      resetBoss();
+      initSocket();
+    });
+  </script>
+</body>
+</html>
