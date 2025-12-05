@@ -1,12 +1,10 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Boss Fight Overlay — Admin + Base64 + Resize</title>
-
-  <!-- Pixel font -->
+  <title>Boss Fight Overlay</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
-
   <style>
     :root{
       --bar-width: 400px;
@@ -16,184 +14,139 @@
       --ui-white: #ffffff;
       --hp-grad-start: #ff6b6b;
       --hp-grad-end: #8b0000;
+      --damage-text-color: #ffffff;
+      --leaderboard-text-color: #ffffff;
+      --percent-text-color: #ffffff;
     }
-
-    html,body{
-      height:100%;
-      margin:0;
-      background: transparent;
-      font-family: var(--pixel-font);
-      -webkit-font-smoothing: none;
-      -moz-osx-font-smoothing: grayscale;
-      user-select: none;
-    }
-
-    /* Controls box (hidden unless ?admin=1) */
+    html,body{height:100%;margin:0;background:transparent;font-family:var(--pixel-font);-webkit-font-smoothing:none;user-select:none;}
     #controls{
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      background: var(--bg-overlay);
-      color: var(--ui-white);
-      padding: 10px;
-      border-radius: 6px;
-      z-index: 50;
-      font-size: 12px;
-      line-height: 1.2;
+      position:absolute; top:10px; left:10px; z-index:60;
+      background:var(--bg-overlay); color:var(--ui-white); padding:10px; border-radius:6px; font-size:12px;
+      max-width:620px;
     }
-    #controls select, #controls input, #controls button {
-      font-family: var(--pixel-font);
-      font-size: 11px;
-      padding: 6px 8px;
-      margin: 4px 6px 4px 0;
-      border-radius: 4px;
-      border: none;
-      background: #222;
-      color: #fff;
-      outline: none;
+    #controls label{display:inline-block; font-size:11px; margin-right:6px;}
+    #controls select,#controls input[type="number"],#controls input[type="text"],#controls button,#controls input[type="file"],#controls input[type="color"]{
+      font-family:var(--pixel-font); font-size:11px; padding:6px 8px; margin:4px 6px 6px 0; border-radius:4px; border:none; background:#222; color:#fff;
     }
-    #controls button { cursor: pointer; }
-
-    #addBossForm { display:none; margin-top:8px; background: rgba(0,0,0,0.6); padding:8px; border-radius:6px; }
-    #addBossForm .row { margin: 6px 0; }
-    #addBossForm input[type="text"]{ width:200px; padding:6px; margin:4px 0; font-size:11px; }
-
-    /* Boss image — auto-resize for large PNGs */
-    #boss {
-      max-width: 400px;
-      max-height: 400px;
-      width: auto;
-      height: auto;
-      display: block;
-      margin: 70px auto 6px auto;
-      image-rendering: pixelated;
-      image-rendering: -moz-crisp-edges;
-      image-rendering: crisp-edges;
-      z-index: 10;
-    }
-
-    /* Health bar container (16-bit style) */
-    #healthBarContainer {
-      width: var(--bar-width);
-      height: var(--bar-height);
-      margin: 6px auto;
-      position: relative;
-      background: #222;
-      border: 4px solid #000;
-      box-shadow: 0 0 0 3px rgba(255,255,255,0.03) inset;
-      border-radius: 4px;
-      overflow: hidden;
-      image-rendering: pixelated;
-    }
-
-    /* Inner bar */
-    #healthBar {
-      height: 100%;
-      width: 100%;
-      background: linear-gradient(90deg, var(--hp-grad-start), var(--hp-grad-end));
-      transition: width 0.28s linear;
-      box-shadow: 0 0 0 2px rgba(0,0,0,0.25) inset;
-    }
-
-    /* Scanline overlay for retro vibe */
-    #healthBarContainer::before{
-      content: "";
-      position: absolute;
-      left: 0; top: 0; right: 0; bottom: 0;
-      background-image:
-        linear-gradient(transparent 50%, rgba(0,0,0,0.06) 50%),
-        linear-gradient(90deg, rgba(255,255,255,0.02), rgba(0,0,0,0.02));
-      background-size: 100% 4px, 100% 100%;
-      pointer-events: none;
-      mix-blend-mode: overlay;
-    }
-
-    /* Percentage label */
-    #healthPercent {
-      position: absolute;
-      left: 50%;
-      top: 50%;
-      transform: translate(-50%,-50%);
-      color: #fff;
-      font-family: var(--pixel-font);
-      font-size: 12px;
-      text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;
-      pointer-events: none;
-      z-index: 20;
-      letter-spacing: 1px;
-    }
-
-    #damageText {
-      color: #fff;
-      font-family: var(--pixel-font);
-      font-size: 12px;
-      text-align: center;
-      margin-top: 6px;
-      text-shadow: 2px 2px 0 #000, -1px -1px 0 #000;
-      min-height: 22px;
-    }
-
-    #leaderboard {
-      color: #fff;
-      font-family: var(--pixel-font);
-      font-size: 12px;
-      text-align: center;
-      margin-top: 8px;
-      text-shadow: 2px 2px 0 #000;
-    }
-
-    @media (max-width: 420px){
-      #boss { max-width: 320px; max-height: 320px; }
-      #healthBarContainer { width: 320px; }
-    }
+    #controls button{cursor:pointer}
+    #addBossForm{display:none; margin-top:8px; background:rgba(0,0,0,0.6); padding:8px; border-radius:6px;}
+    #boss{max-width:400px; max-height:400px; width:auto; height:auto; display:block; margin:70px auto 6px auto; image-rendering:pixelated; z-index:10;}
+    #healthBarContainer{width:var(--bar-width); height:var(--bar-height); margin:6px auto; position:relative; background:#222; border:4px solid #000; border-radius:4px; overflow:hidden;}
+    #healthBar{height:100%; width:100%; background:linear-gradient(90deg,var(--hp-grad-start),var(--hp-grad-end)); transition:width .28s linear;}
+    #healthBarContainer::before{content:""; position:absolute; left:0; top:0; right:0; bottom:0; background-image:linear-gradient(transparent 50%, rgba(0,0,0,0.06) 50%); background-size:100% 4px; pointer-events:none; mix-blend-mode:overlay;}
+    #healthPercent{position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); color:var(--percent-text-color); font-size:12px; z-index:20; pointer-events:none; text-shadow:2px 2px 0 #000;}
+    #damageText{color:var(--damage-text-color); font-size:12px; text-align:center; margin-top:6px; min-height:22px; text-shadow:2px 2px 0 #000;}
+    #leaderboard{color:var(--leaderboard-text-color); font-size:12px; text-align:center; margin-top:8px; text-shadow:2px 2px 0 #000;}
+    #smallNote{font-size:10px; opacity:0.9; margin-top:6px;}
+    .sectionTitle{font-size:11px; margin-top:8px; display:block; font-weight:bold;}
+    .inlineRow{display:flex; align-items:center; flex-wrap:wrap;}
+    .inlineRow > * { margin-right:6px; margin-bottom:6px; }
+    .testBtn { background:#0a84ff; color:#fff; padding:6px 8px; border-radius:4px; }
+    .testInput { width:70px; }
+    @media (max-width:620px){ #controls{max-width:320px;} #boss{max-width:320px; max-height:320px;} #healthBarContainer{width:320px;} }
   </style>
 </head>
 <body>
-  <!-- Admin controls (hidden for viewers unless ?admin=1) -->
   <div id="controls">
-    <label for="bossSelector">Boss:</label>
-    <select id="bossSelector"></select>
+    <div style="margin-bottom:6px;">
+      <label for="bossSelector">Boss</label>
+      <select id="bossSelector"></select>
+      <label for="healthInput">Max HP</label>
+      <input id="healthInput" type="number" value="1000" min="1" />
+    </div>
 
-    <label for="healthInput">Health:</label>
-    <input type="number" id="healthInput" value="1000" min="1" />
+    <div style="margin-bottom:6px;">
+      <button id="resetBtn">Reset</button>
+      <button id="addBossBtn">Add Boss</button>
+      <button id="deleteBossBtn">Delete</button>
+      <button id="publishBtn" title="Push selected boss and settings to viewers">Publish</button>
+    </div>
 
-    <button id="resetBtn">Reset</button>
-    <button id="addBossBtn">Add Boss</button>
-    <button id="deleteBossBtn">Delete</button>
+    <!-- Damage Controls -->
+    <span class="sectionTitle">Damage Controls</span>
 
-    <!-- TikFinity host config (no on-stream status) -->
-    <div class="row">
-      <label for="wsHostInput">TikFinity Host</label>
-      <input id="wsHostInput" type="text" placeholder="localhost:21213" style="font-family: monospace; width:160px;" />
+    <div class="inlineRow">
+      <label for="likesPerTrigger">Likes per trigger</label>
+      <input id="likesPerTrigger" type="number" min="1" value="50" />
+      <label for="likeMode">Like mode</label>
+      <select id="likeMode">
+        <option value="random">Random 1–6</option>
+        <option value="fixed">Fixed per trigger</option>
+      </select>
+      <label for="likeFixedDamage">Fixed dmg</label>
+      <input id="likeFixedDamage" type="number" min="0" value="3" />
+      <button id="testLikeBtn" class="testBtn">Test Like</button>
+    </div>
+
+    <div class="inlineRow">
+      <label for="followDamage">Follow dmg</label>
+      <input id="followDamage" type="number" min="0" value="8" />
+      <button id="testFollowBtn" class="testBtn">Test Follow</button>
+
+      <label for="shareDamage">Share dmg</label>
+      <input id="shareDamage" type="number" min="0" value="8" />
+      <button id="testShareBtn" class="testBtn">Test Share</button>
+
+      <label for="giftMultiplier">Gift multiplier</label>
+      <input id="giftMultiplier" type="number" min="0" value="10" />
+      <label for="giftCoins">Coins</label>
+      <input id="giftCoins" class="testInput" type="number" min="1" value="3" />
+      <label for="giftName">Gift</label>
+      <input id="giftName" class="testInput" type="text" value="TestGift" />
+      <button id="testGiftBtn" class="testBtn">Test Gift</button>
+    </div>
+
+    <div class="inlineRow">
+      <label for="difficultyMultiplier">Difficulty x</label>
+      <input id="difficultyMultiplier" type="number" step="0.1" min="0.1" value="1.0" />
+      <button id="saveSettingsBtn">Save Settings</button>
+      <button id="resetSettingsBtn">Reset Settings</button>
+    </div>
+
+    <span class="sectionTitle">Style</span>
+    <div class="inlineRow">
+      <label for="hpStart">HP Start</label><input id="hpStart" type="color" value="#ff6b6b" />
+      <label for="hpEnd">HP End</label><input id="hpEnd" type="color" value="#8b0000" />
+      <label for="percentColor">Percent</label><input id="percentColor" type="color" value="#ffffff" />
+      <label for="damageColor">Damage</label><input id="damageColor" type="color" value="#ffffff" />
+      <label for="leaderColor">Leaderboard</label><input id="leaderColor" type="color" value="#ffffff" />
+      <button id="saveStyleBtn">Save Style</button>
+      <button id="resetStyleBtn">Reset Style</button>
+    </div>
+
+    <span class="sectionTitle">TikFinity</span>
+    <div class="inlineRow">
+      <label for="wsHostInput">Host</label>
+      <input id="wsHostInput" type="text" placeholder="localhost:21213" style="font-family:monospace;width:160px;" />
       <button id="saveWsHostBtn">Save</button>
       <button id="clearWsHostBtn">Clear</button>
     </div>
 
-    <!-- Add Boss Form -->
     <div id="addBossForm">
       <div class="row"><input id="newBossName" type="text" placeholder="Boss Name" /></div>
       <div class="row">Normal PNG: <input id="newBossNormal" type="file" accept="image/png" /></div>
       <div class="row">Damage PNG: <input id="newBossDamage" type="file" accept="image/png" /></div>
-      <div class="row"><button id="saveBossBtn">Save Boss</button></div>
-      <div style="font-size:10px; opacity:0.9; margin-top:6px;">Images are resized and embedded as base64 so Streamlabs and GitHub Pages display them reliably.</div>
+      <div class="row"><button id="saveBossBtn">Save Boss</button> <button id="cancelAddBtn">Cancel</button></div>
+      <div id="importExport" style="margin-top:6px;">
+        <button id="exportBtn">Export Bosses</button>
+        <input id="importFile" type="file" accept="application/json" />
+        <button id="importBtn">Import Bosses</button>
+      </div>
+      <div id="smallNote">Images are resized and embedded as base64 so the overlay works on GitHub Pages and Streamlabs.</div>
     </div>
   </div>
 
-  <!-- Boss sprite -->
+  <!-- Overlay display -->
   <img id="boss" src="" alt="Boss">
-
-  <!-- Health bar -->
   <div id="healthBarContainer">
     <div id="healthBar"></div>
     <div id="healthPercent">100%</div>
   </div>
-
-  <!-- Damage + leaderboard -->
   <div id="damageText"></div>
   <div id="leaderboard"></div>
 
   <script>
-    // Hide admin controls unless ?admin=1
+    // Admin visibility
     window.addEventListener('DOMContentLoaded', () => {
       const params = new URLSearchParams(window.location.search);
       const isAdmin = params.get('admin') === '1';
@@ -201,97 +154,185 @@
       if (!isAdmin && controls) controls.style.display = 'none';
     });
 
-    // Bosses in localStorage (base64)
-    let bosses = JSON.parse(localStorage.getItem("bosses")) || {};
-
-    // State
-    let boss = { health: 1000, maxHealth: 1000 };
-    let likeCounter = 0;
-    let damageLog = {};
+    // Storage keys
+    const KEY_BOSSES = 'bosses';
+    const KEY_PUBLISHED = 'publishedBoss';
+    const KEY_STYLE = 'overlayStyle';
+    const KEY_WS = 'tf_ws_host';
+    const KEY_SETTINGS = 'overlaySettings';
 
     // Elements
-    const bossImg = document.getElementById("boss");
-    const bossSelector = document.getElementById("bossSelector");
-    const healthBar = document.getElementById("healthBar");
-    const healthPercent = document.getElementById("healthPercent");
-    const damageText = document.getElementById("damageText");
-    const leaderboard = document.getElementById("leaderboard");
-    const resetBtn = document.getElementById("resetBtn");
-    const healthInput = document.getElementById("healthInput");
-    const addBossBtn = document.getElementById("addBossBtn");
-    const addBossForm = document.getElementById("addBossForm");
-    const saveBossBtn = document.getElementById("saveBossBtn");
-    const deleteBossBtn = document.getElementById("deleteBossBtn");
-    const newBossNameInput = document.getElementById("newBossName");
-    const newBossNormalInput = document.getElementById("newBossNormal");
-    const newBossDamageInput = document.getElementById("newBossDamage");
+    const bossImg = document.getElementById('boss');
+    const bossSelector = document.getElementById('bossSelector');
+    const healthBar = document.getElementById('healthBar');
+    const healthPercent = document.getElementById('healthPercent');
+    const damageText = document.getElementById('damageText');
+    const leaderboard = document.getElementById('leaderboard');
+    const resetBtn = document.getElementById('resetBtn');
+    const healthInput = document.getElementById('healthInput');
+    const addBossBtn = document.getElementById('addBossBtn');
+    const addBossForm = document.getElementById('addBossForm');
+    const saveBossBtn = document.getElementById('saveBossBtn');
+    const deleteBossBtn = document.getElementById('deleteBossBtn');
+    const newBossNameInput = document.getElementById('newBossName');
+    const newBossNormalInput = document.getElementById('newBossNormal');
+    const newBossDamageInput = document.getElementById('newBossDamage');
+    const cancelAddBtn = document.getElementById('cancelAddBtn');
+    const publishBtn = document.getElementById('publishBtn');
+    const exportBtn = document.getElementById('exportBtn');
+    const importBtn = document.getElementById('importBtn');
+    const importFile = document.getElementById('importFile');
+
+    // Damage controls elements
+    const likesPerTrigger = document.getElementById('likesPerTrigger');
+    const likeMode = document.getElementById('likeMode');
+    const likeFixedDamage = document.getElementById('likeFixedDamage');
+    const followDamage = document.getElementById('followDamage');
+    const shareDamage = document.getElementById('shareDamage');
+    const giftMultiplier = document.getElementById('giftMultiplier');
+    const giftCoins = document.getElementById('giftCoins');
+    const giftName = document.getElementById('giftName');
+    const difficultyMultiplier = document.getElementById('difficultyMultiplier');
+    const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+    const resetSettingsBtn = document.getElementById('resetSettingsBtn');
+
+    // Test buttons
+    const testLikeBtn = document.getElementById('testLikeBtn');
+    const testFollowBtn = document.getElementById('testFollowBtn');
+    const testShareBtn = document.getElementById('testShareBtn');
+    const testGiftBtn = document.getElementById('testGiftBtn');
+
+    // Style controls
+    const hpStart = document.getElementById('hpStart');
+    const hpEnd = document.getElementById('hpEnd');
+    const percentColor = document.getElementById('percentColor');
+    const damageColor = document.getElementById('damageColor');
+    const leaderColor = document.getElementById('leaderColor');
+    const saveStyleBtn = document.getElementById('saveStyleBtn');
+    const resetStyleBtn = document.getElementById('resetStyleBtn');
+
+    // TikFinity host
     const wsHostInput = document.getElementById('wsHostInput');
     const saveWsHostBtn = document.getElementById('saveWsHostBtn');
     const clearWsHostBtn = document.getElementById('clearWsHostBtn');
 
-    // Populate dropdown
-    function populateBosses(){
-      bossSelector.innerHTML = "";
+    // Data
+    let bosses = JSON.parse(localStorage.getItem(KEY_BOSSES) || '{}');
+    let bossState = { health: 1000, maxHealth: 1000 };
+    let likeCounter = 0;
+    let damageLog = {};
+    let publishedPayload = null;
+    let overlaySettings = JSON.parse(localStorage.getItem(KEY_SETTINGS) || '{}');
+
+    // Helpers
+    const TRANSPARENT_1PX = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=';
+
+    function saveBossesToStorage() { localStorage.setItem(KEY_BOSSES, JSON.stringify(bosses)); }
+    function saveSettingsToStorage() { localStorage.setItem(KEY_SETTINGS, JSON.stringify(overlaySettings)); }
+
+    function populateBosses() {
+      bossSelector.innerHTML = '';
       const keys = Object.keys(bosses);
-      for (let key of keys){
-        const opt = document.createElement("option");
-        opt.value = key;
-        opt.textContent = (bosses[key].name || key).replace(/_/g," ");
+      for (const k of keys) {
+        const opt = document.createElement('option');
+        opt.value = k;
+        opt.textContent = (bosses[k].name || k).replace(/_/g,' ');
         bossSelector.appendChild(opt);
       }
       if (keys.length) bossSelector.value = keys[0];
     }
 
-    // Fallback tiny transparent PNG data URL
-    const TRANSPARENT_1PX = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=';
+    function getNormalSrc(key) { const b = bosses[key] || {}; return b.normalData || TRANSPARENT_1PX; }
+    function getDamageSrc(key) { const b = bosses[key] || {}; return b.damageData || getNormalSrc(key); }
 
-    // Resolve image src: prefer base64, fallback to transparent
-    function getNormalSrc(key) {
-      const b = bosses[key] || {};
-      return b.normalData || TRANSPARENT_1PX;
-    }
-    function getDamageSrc(key) {
-      const b = bosses[key] || {};
-      return b.damageData || getNormalSrc(key);
+    function getDefaultSettings() {
+      return {
+        likesPerTrigger: 50,
+        likeMode: 'random', // 'random' or 'fixed'
+        likeFixedDamage: 3,
+        followDamage: 8,
+        shareDamage: 8,
+        giftMultiplier: 10,
+        difficultyMultiplier: 1.0
+      };
     }
 
-    function resetBoss(){
+    function ensureSettings() {
+      overlaySettings = Object.assign({}, getDefaultSettings(), overlaySettings || {});
+      likesPerTrigger.value = overlaySettings.likesPerTrigger;
+      likeMode.value = overlaySettings.likeMode;
+      likeFixedDamage.value = overlaySettings.likeFixedDamage;
+      followDamage.value = overlaySettings.followDamage;
+      shareDamage.value = overlaySettings.shareDamage;
+      giftMultiplier.value = overlaySettings.giftMultiplier;
+      difficultyMultiplier.value = overlaySettings.difficultyMultiplier;
+    }
+
+    function updateHealthBar() {
+      const percent = Math.max(0, Math.round((bossState.health / bossState.maxHealth) * 100));
+      healthBar.style.width = percent + '%';
+      healthPercent.textContent = percent + '%';
+      healthBar.style.background = `linear-gradient(90deg, ${getStyle().hpStart}, ${getStyle().hpEnd})`;
+    }
+
+    function updateLeaderboard() {
+      const sorted = Object.entries(damageLog).sort((a,b)=> b[1]-a[1]);
+      const top3 = sorted.slice(0,3);
+      leaderboard.innerHTML = "<b>🏆 Leaderboard</b><br>" + (top3.length ? top3.map((r,i)=> `${i+1}. ${r[0]}: ${r[1]} dmg`).join('<br>') : 'No damage yet');
+    }
+
+    function showDamage() {
+      if (publishedPayload && (publishedPayload.damageData || publishedPayload.normalData)) {
+        bossImg.src = publishedPayload.damageData || publishedPayload.normalData || TRANSPARENT_1PX;
+        setTimeout(()=> { bossImg.src = publishedPayload.normalData || TRANSPARENT_1PX; }, 500);
+        return;
+      }
       const selected = bossSelector.value;
-      boss.maxHealth = parseInt(healthInput.value, 10) > 0 ? parseInt(healthInput.value, 10) : 1000;
-      boss.health = boss.maxHealth;
-      damageLog = {};
-      updateLeaderboard();
-      updateHealthBar();
-      damageText.textContent = "";
-      bossImg.src = selected ? getNormalSrc(selected) : TRANSPARENT_1PX;
+      bossImg.src = getDamageSrc(selected);
+      setTimeout(()=> bossImg.src = getNormalSrc(selected), 500);
     }
 
-    // Toggle add boss form
-    addBossBtn.addEventListener("click", () => {
-      addBossForm.style.display = addBossForm.style.display === "none" ? "block" : "none";
-    });
+    function applyDamage(amount, user='Viewer', source='Attack') {
+      bossState.health -= amount;
+      if (bossState.health < 0) bossState.health = 0;
+      damageLog[user] = (damageLog[user] || 0) + amount;
+      updateHealthBar();
+      damageText.textContent = `${user} dealt ${amount} damage with ${source}!`;
+      showDamage();
+      updateLeaderboard();
+      if (bossState.health <= 0) {
+        damageText.textContent = '⚔️ Boss Defeated! ⚔️';
+        announceMVP();
+      }
+    }
 
-    // Resize image file to dataURL with max dimension
-    function resizeImageFileToDataURL(file, maxDim = 800, mime = 'image/png', quality = 0.9) {
-      return new Promise((resolve, reject) => {
+    function announceMVP() {
+      const sorted = Object.entries(damageLog).sort((a,b)=> b[1]-a[1]);
+      if (sorted.length) {
+        const [mvp, dmg] = sorted[0];
+        setTimeout(()=> damageText.textContent = `🏆 MVP: ${mvp} with ${dmg} total damage!`, 1500);
+      }
+    }
+
+    // Resize and convert to dataURL
+    function resizeImageFileToDataURL(file, maxDim=800, mime='image/png', quality=0.9) {
+      return new Promise((resolve,reject)=>{
         const img = new Image();
         const reader = new FileReader();
-        reader.onload = () => {
-          img.onload = () => {
-            let { width, height } = img;
+        reader.onload = ()=> {
+          img.onload = ()=> {
+            let {width,height} = img;
             if (width > maxDim || height > maxDim) {
-              const ratio = width / height;
-              if (ratio > 1) { width = maxDim; height = Math.round(maxDim / ratio); }
-              else { height = maxDim; width = Math.round(maxDim * ratio); }
+              const ratio = width/height;
+              if (ratio > 1) { width = maxDim; height = Math.round(maxDim/ratio); }
+              else { height = maxDim; width = Math.round(maxDim*ratio); }
             }
             const canvas = document.createElement('canvas');
-            canvas.width = width;
-            canvas.height = height;
+            canvas.width = width; canvas.height = height;
             const ctx = canvas.getContext('2d');
-            ctx.clearRect(0, 0, width, height);
-            ctx.drawImage(img, 0, 0, width, height);
-            const dataUrl = canvas.toDataURL(mime, quality);
-            resolve(dataUrl);
+            ctx.clearRect(0,0,width,height);
+            ctx.drawImage(img,0,0,width,height);
+            resolve(canvas.toDataURL(mime, quality));
           };
           img.onerror = reject;
           img.src = reader.result;
@@ -301,195 +342,329 @@
       });
     }
 
-    // Save new boss with resizing + base64
-    saveBossBtn.addEventListener("click", async () => {
-      const nameRaw = newBossNameInput.value.trim();
-      const normalFile = newBossNormalInput.files[0];
-      const damageFile = newBossDamageInput.files[0];
-
-      if (!nameRaw || !normalFile || !damageFile) {
-        alert("Please enter a name and select both PNG files.");
-        return;
-      }
-
+    // Publish selected boss, style, and settings
+    function publishSelectedBoss() {
+      const key = bossSelector.value;
+      if (!key) { alert('No boss selected'); return; }
+      const payload = {
+        name: bosses[key].name || key,
+        normalData: bosses[key].normalData,
+        damageData: bosses[key].damageData,
+        maxHealth: parseInt(healthInput.value,10) || 1000,
+        timestamp: Date.now()
+      };
+      localStorage.setItem(KEY_PUBLISHED, JSON.stringify(payload));
+      localStorage.setItem(KEY_STYLE, JSON.stringify(getStyle()));
+      localStorage.setItem(KEY_SETTINGS, JSON.stringify(overlaySettings));
+      publishedPayload = payload;
       try {
-        const MAX_DIM = 800;      // reduce to 512 if you want smaller
-        const QUALITY = 0.9;
+        window.dispatchEvent(new StorageEvent('storage', { key: KEY_PUBLISHED, newValue: JSON.stringify(payload) }));
+      } catch (e) {}
+      alert('Published to viewers');
+    }
 
-        const [normalData, damageData] = await Promise.all([
-          resizeImageFileToDataURL(normalFile, MAX_DIM, 'image/png', QUALITY),
-          resizeImageFileToDataURL(damageFile, MAX_DIM, 'image/png', QUALITY)
-        ]);
-
-        const approxKb = Math.round((normalData.length + damageData.length) * 3 / 4 / 1024);
-        if (approxKb > 4000) {
-          if (!confirm(`Embedded images total ~${approxKb} KB. This may be large for localStorage. Continue?`)) {
-            return;
-          }
+    // Import / Export
+    function exportBosses() {
+      const data = JSON.stringify(bosses, null, 2);
+      const blob = new Blob([data], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'bosses.json';
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    }
+    function importBossesFile(file) {
+      const reader = new FileReader();
+      reader.onload = ()=> {
+        try {
+          const obj = JSON.parse(reader.result);
+          if (typeof obj !== 'object') throw new Error('Invalid JSON');
+          for (const k of Object.keys(obj)) bosses[k] = obj[k];
+          saveBossesToStorage();
+          populateBosses();
+          alert('Imported bosses');
+        } catch (e) {
+          alert('Failed to import: ' + e.message);
         }
-
-        const key = nameRaw.replace(/\s+/g,"_");
-        bosses[key] = { name: nameRaw, normalData, damageData };
-
-        localStorage.setItem("bosses", JSON.stringify(bosses));
-        populateBosses();
-        bossSelector.value = key;
-        addBossForm.style.display = "none";
-        newBossNameInput.value = "";
-        newBossNormalInput.value = "";
-        newBossDamageInput.value = "";
-        resetBoss();
-        alert('Boss saved.');
-      } catch (e) {
-        console.error('Image processing failed', e);
-        alert('Failed to process images. Try smaller PNGs or different files.');
-      }
-    });
-
-    // Delete boss
-    deleteBossBtn.addEventListener("click", () => {
-      const selected = bossSelector.value;
-      if (!selected) return;
-      const keys = Object.keys(bosses);
-      if (keys.length <= 1) {
-        alert("You must keep at least one boss.");
-        return;
-      }
-      if (confirm(`Delete boss "${(bosses[selected].name || selected).replace(/_/g," ")}"? This cannot be undone.`)) {
-        delete bosses[selected];
-        localStorage.setItem("bosses", JSON.stringify(bosses));
-        populateBosses();
-        resetBoss();
-      }
-    });
-
-    // Change selection / reset
-    resetBtn.addEventListener("click", resetBoss);
-    bossSelector.addEventListener("change", resetBoss);
-
-    // Show damage PNG briefly
-    function showDamage(){
-      const selected = bossSelector.value;
-      bossImg.src = getDamageSrc(selected);
-      setTimeout(()=> { bossImg.src = getNormalSrc(selected); }, 500);
+      };
+      reader.readAsText(file);
     }
 
-    // Apply damage and update visuals + logs
-    function applyDamage(amount, user = "Viewer", source = "Attack"){
-      boss.health -= amount;
-      if (boss.health < 0) boss.health = 0;
-      damageLog[user] = (damageLog[user] || 0) + amount;
-      updateHealthBar();
-      damageText.textContent = `${user} dealt ${amount} damage with ${source}!`;
-      showDamage();
-      updateLeaderboard();
-      if (boss.health <= 0){
-        damageText.textContent = "⚔️ Boss Defeated! ⚔️";
-        announceMVP();
-      }
+    // Style management
+    function getStyle() {
+      const stored = JSON.parse(localStorage.getItem(KEY_STYLE) || '{}');
+      return {
+        hpStart: stored.hpStart || getComputedStyle(document.documentElement).getPropertyValue('--hp-grad-start').trim() || '#ff6b6b',
+        hpEnd: stored.hpEnd || getComputedStyle(document.documentElement).getPropertyValue('--hp-grad-end').trim() || '#8b0000',
+        percentColor: stored.percentColor || getComputedStyle(document.documentElement).getPropertyValue('--percent-text-color').trim() || '#ffffff',
+        damageColor: stored.damageColor || getComputedStyle(document.documentElement).getPropertyValue('--damage-text-color').trim() || '#ffffff',
+        leaderColor: stored.leaderColor || getComputedStyle(document.documentElement).getPropertyValue('--leaderboard-text-color').trim() || '#ffffff'
+      };
+    }
+    function applyStyle(s) {
+      document.documentElement.style.setProperty('--hp-grad-start', s.hpStart);
+      document.documentElement.style.setProperty('--hp-grad-end', s.hpEnd);
+      document.documentElement.style.setProperty('--percent-text-color', s.percentColor);
+      document.documentElement.style.setProperty('--damage-text-color', s.damageColor);
+      document.documentElement.style.setProperty('--leaderboard-text-color', s.leaderColor);
+      if (hpStart) hpStart.value = s.hpStart;
+      if (hpEnd) hpEnd.value = s.hpEnd;
+      if (percentColor) percentColor.value = s.percentColor;
+      if (damageColor) damageColor.value = s.damageColor;
+      if (leaderColor) leaderColor.value = s.leaderColor;
+    }
+    function saveStyle() {
+      const s = {
+        hpStart: hpStart.value,
+        hpEnd: hpEnd.value,
+        percentColor: percentColor.value,
+        damageColor: damageColor.value,
+        leaderColor: leaderColor.value
+      };
+      localStorage.setItem(KEY_STYLE, JSON.stringify(s));
+      applyStyle(s);
+      alert('Style saved');
+    }
+    function resetStyle() {
+      const s = { hpStart:'#ff6b6b', hpEnd:'#8b0000', percentColor:'#ffffff', damageColor:'#ffffff', leaderColor:'#ffffff' };
+      localStorage.setItem(KEY_STYLE, JSON.stringify(s));
+      applyStyle(s);
+      alert('Style reset');
     }
 
-    // Update health bar width and percentage
-    function updateHealthBar(){
-      const percent = Math.max(0, Math.round((boss.health / boss.maxHealth) * 100));
-      healthBar.style.width = percent + "%";
-      healthPercent.textContent = percent + "%";
-      if (percent <= 25) {
-        healthBar.style.background = "linear-gradient(90deg, #ffb74d, #ff6b6b)";
-      } else {
-        healthBar.style.background = "linear-gradient(90deg, var(--hp-grad-start), var(--hp-grad-end))";
-      }
+    // Save settings UI -> overlaySettings
+    function saveSettingsFromUI() {
+      overlaySettings.likesPerTrigger = Math.max(1, parseInt(likesPerTrigger.value,10) || 1);
+      overlaySettings.likeMode = likeMode.value === 'fixed' ? 'fixed' : 'random';
+      overlaySettings.likeFixedDamage = Math.max(0, parseInt(likeFixedDamage.value,10) || 0);
+      overlaySettings.followDamage = Math.max(0, parseInt(followDamage.value,10) || 0);
+      overlaySettings.shareDamage = Math.max(0, parseInt(shareDamage.value,10) || 0);
+      overlaySettings.giftMultiplier = Math.max(0, parseFloat(giftMultiplier.value) || 0);
+      overlaySettings.difficultyMultiplier = Math.max(0.1, parseFloat(difficultyMultiplier.value) || 1.0);
+      saveSettingsToStorage();
+      alert('Settings saved');
+    }
+    function resetSettingsToDefault() {
+      overlaySettings = getDefaultSettings();
+      saveSettingsToStorage();
+      ensureSettings();
+      alert('Settings reset to defaults');
     }
 
-    // Leaderboard (top 3)
-    function updateLeaderboard(){
-      const sorted = Object.entries(damageLog).sort((a,b) => b[1] - a[1]);
-      const top3 = sorted.slice(0,3);
-      leaderboard.innerHTML = "<b>🏆 Leaderboard</b><br>" + (top3.length ? top3.map((r,i)=> `${i+1}. ${r[0]}: ${r[1]} dmg`).join("<br>") : "No damage yet");
-    }
-
-    // MVP announcement
-    function announceMVP(){
-      const sorted = Object.entries(damageLog).sort((a,b) => b[1] - a[1]);
-      if (sorted.length > 0){
-        const [mvp, maxDamage] = sorted[0];
-        setTimeout(()=> {
-          damageText.textContent = `🏆 MVP: ${mvp} with ${maxDamage} total damage!`;
-        }, 1500);
-      }
-    }
-
-    // TikFinity host config (admin only, no visible status on stream)
-    wsHostInput.value = localStorage.getItem('tf_ws_host') || 'localhost:21213';
-    saveWsHostBtn.addEventListener('click', () => {
-      const v = wsHostInput.value.trim();
-      if (v) {
-        localStorage.setItem('tf_ws_host', v);
-        alert('Saved WebSocket host: ' + v + '. Reload overlay to apply.');
-        location.reload();
-      }
-    });
-    clearWsHostBtn.addEventListener('click', () => {
-      localStorage.removeItem('tf_ws_host');
-      wsHostInput.value = 'localhost:21213';
-      alert('Cleared host. Overlay will use localhost on next load.');
-      location.reload();
-    });
-
-    // WebSocket connection (no on-stream status text)
+    // Init socket (silent)
     function initSocket() {
-      const wsHost = localStorage.getItem('tf_ws_host') || 'localhost:21213';
+      const wsHost = localStorage.getItem(KEY_WS) || 'localhost:21213';
       try {
         const socket = new WebSocket(`ws://${wsHost}/`);
         socket.onmessage = (event) => {
           try {
             const payload = JSON.parse(event.data);
             handleEvent(payload.event, payload.data);
-          } catch (e) {
-            console.warn('Invalid event data:', e);
-          }
+          } catch (e) { console.warn('Invalid event', e); }
         };
-        socket.onerror = (e) => console.warn('WebSocket error:', e);
-      } catch (e) {
-        console.warn('WebSocket init failed:', e);
-      }
+        socket.onerror = (e) => console.warn('WebSocket error', e);
+      } catch (e) { console.warn('WebSocket init failed', e); }
     }
 
-    // Damage rules
-    function handleEvent(eventType, payload = {}){
+    // Event handling using overlaySettings
+    function handleEvent(eventType, payload={}) {
+      if (!overlaySettings || !overlaySettings.likesPerTrigger) ensureSettings();
       switch (eventType) {
-        case "like":
+        case 'like':
           likeCounter++;
-          if (likeCounter >= 50) {
+          if (likeCounter >= overlaySettings.likesPerTrigger) {
             likeCounter = 0;
-            const damage = Math.floor(Math.random() * 6) + 1;
-            applyDamage(damage, payload.user || "Viewer", "Like Roll");
+            let dmg = 0;
+            if (overlaySettings.likeMode === 'fixed') {
+              dmg = overlaySettings.likeFixedDamage;
+            } else {
+              dmg = Math.floor(Math.random()*6) + 1; // 1-6
+            }
+            dmg = Math.round(dmg * overlaySettings.difficultyMultiplier);
+            applyDamage(dmg, payload.user || 'Viewer', 'Like Roll');
           }
           break;
-        case "follow":
-        case "share":
-          applyDamage(8, payload.user || "Viewer", eventType);
+        case 'follow':
+          applyDamage(Math.round(overlaySettings.followDamage * overlaySettings.difficultyMultiplier), payload.user || 'Viewer', 'Follow');
           break;
-        case "gift":
+        case 'share':
+          applyDamage(Math.round(overlaySettings.shareDamage * overlaySettings.difficultyMultiplier), payload.user || 'Viewer', 'Share');
+          break;
+        case 'gift':
           const coins = payload.coinCount || payload.coins || 1;
-          const giftName = payload.giftName || payload.gift || "Gift";
-          applyDamage(coins * 10, payload.user || "Viewer", giftName);
+          const giftName = payload.giftName || payload.gift || 'Gift';
+          const mult = overlaySettings.giftMultiplier || 1;
+          const raw = coins * mult;
+          const dmg = Math.round(raw * overlaySettings.difficultyMultiplier);
+          applyDamage(dmg, payload.user || 'Viewer', giftName);
           break;
       }
     }
 
-    // Demo: click to simulate D6 hit
-    document.body.addEventListener("click", () => {
-      const damage = Math.floor(Math.random() * 6) + 1;
-      applyDamage(damage, "DemoUser", "Test Click");
+    // Storage listener for published boss/settings/style
+    window.addEventListener('storage', (e) => {
+      if (e.key === KEY_PUBLISHED && e.newValue) {
+        try { const payload = JSON.parse(e.newValue); loadPublished(payload); } catch (err) { console.warn('Invalid published payload', err); }
+      }
+      if (e.key === KEY_STYLE && e.newValue) {
+        try { applyStyle(JSON.parse(e.newValue)); } catch(e){console.warn(e);}
+      }
+      if (e.key === KEY_SETTINGS && e.newValue) {
+        try { overlaySettings = JSON.parse(e.newValue); ensureSettings(); } catch(e){console.warn(e);}
+      }
+    });
+
+    // Load published boss payload into overlay (viewer)
+    function loadPublished(payload) {
+      if (!payload) return;
+      publishedPayload = payload;
+      bossState.maxHealth = payload.maxHealth || 1000;
+      bossState.health = bossState.maxHealth;
+      damageLog = {};
+      updateLeaderboard();
+      updateHealthBar();
+      damageText.textContent = '';
+      bossImg.src = payload.normalData || TRANSPARENT_1PX;
+    }
+
+    // On load, if published exists, load it
+    function initFromPublished() {
+      const pub = localStorage.getItem(KEY_PUBLISHED);
+      if (pub) {
+        try { const payload = JSON.parse(pub); loadPublished(payload); } catch (e) { console.warn('Invalid published payload', e); }
+      } else {
+        const keys = Object.keys(bosses);
+        if (keys.length) {
+          bossImg.src = getNormalSrc(keys[0]);
+          bossState.maxHealth = parseInt(healthInput.value,10) || 1000;
+          bossState.health = bossState.maxHealth;
+          updateHealthBar();
+        } else {
+          bossImg.src = TRANSPARENT_1PX;
+        }
+      }
+      const style = getStyle();
+      applyStyle(style);
+      overlaySettings = JSON.parse(localStorage.getItem(KEY_SETTINGS) || '{}');
+      ensureSettings();
+    }
+
+    // UI wiring
+    addBossBtn.addEventListener('click', ()=> addBossForm.style.display = addBossForm.style.display === 'none' ? 'block' : 'none');
+    cancelAddBtn.addEventListener('click', ()=> { addBossForm.style.display='none'; newBossNameInput.value=''; newBossNormalInput.value=''; newBossDamageInput.value=''; });
+
+    saveBossBtn.addEventListener('click', async ()=>{
+      const nameRaw = newBossNameInput.value.trim();
+      const normalFile = newBossNormalInput.files[0];
+      const damageFile = newBossDamageInput.files[0];
+      if (!nameRaw || !normalFile || !damageFile) { alert('Enter name and select both PNGs'); return; }
+      try {
+        const MAX_DIM = 800;
+        const [normalData, damageData] = await Promise.all([
+          resizeImageFileToDataURL(normalFile, MAX_DIM, 'image/png', 0.9),
+          resizeImageFileToDataURL(damageFile, MAX_DIM, 'image/png', 0.9)
+        ]);
+        const key = nameRaw.replace(/\s+/g,'_');
+        bosses[key] = { name: nameRaw, normalData, damageData };
+        saveBossesToStorage();
+        populateBosses();
+        bossSelector.value = key;
+        addBossForm.style.display = 'none';
+        newBossNameInput.value=''; newBossNormalInput.value=''; newBossDamageInput.value='';
+        resetBoss();
+        alert('Boss saved');
+      } catch (e) {
+        console.error(e);
+        alert('Failed to process images. Try smaller PNGs.');
+      }
+    });
+
+    deleteBossBtn.addEventListener('click', ()=>{
+      const selected = bossSelector.value;
+      if (!selected) return;
+      const keys = Object.keys(bosses);
+      if (keys.length <= 1) { alert('Keep at least one boss'); return; }
+      if (!confirm(`Delete boss "${(bosses[selected].name||selected)}"?`)) return;
+      delete bosses[selected];
+      saveBossesToStorage();
+      populateBosses();
+      resetBoss();
+    });
+
+    resetBtn.addEventListener('click', resetBoss);
+    bossSelector.addEventListener('change', resetBoss);
+
+    publishBtn.addEventListener('click', publishSelectedBoss);
+
+    exportBtn.addEventListener('click', exportBosses);
+    importBtn.addEventListener('click', ()=> {
+      const f = importFile.files[0];
+      if (!f) { alert('Choose a JSON file to import'); return; }
+      importBossesFile(f);
+    });
+
+    saveStyleBtn.addEventListener('click', saveStyle);
+    resetStyleBtn.addEventListener('click', resetStyle);
+
+    saveSettingsBtn.addEventListener('click', saveSettingsFromUI);
+    resetSettingsBtn.addEventListener('click', resetSettingsToDefault);
+
+    saveWsHostBtn.addEventListener('click', ()=> {
+      const v = wsHostInput.value.trim();
+      if (v) { localStorage.setItem(KEY_WS, v); alert('Saved host'); location.reload(); }
+    });
+    clearWsHostBtn.addEventListener('click', ()=> { localStorage.removeItem(KEY_WS); wsHostInput.value='localhost:21213'; alert('Cleared host'); location.reload(); });
+
+    // Demo click to apply damage
+    document.body.addEventListener('click', (e)=>{
+      if (e.target.closest('#controls')) return;
+      const dmg = Math.floor(Math.random()*6)+1;
+      applyDamage(dmg, 'DemoUser', 'Test Click');
+    });
+
+    // Reset boss loads selected boss into working state
+    function resetBoss() {
+      const selected = bossSelector.value;
+      bossState.maxHealth = parseInt(healthInput.value,10) > 0 ? parseInt(healthInput.value,10) : 1000;
+      bossState.health = bossState.maxHealth;
+      damageLog = {};
+      updateLeaderboard();
+      updateHealthBar();
+      damageText.textContent = '';
+      bossImg.src = selected ? getNormalSrc(selected) : TRANSPARENT_1PX;
+    }
+
+    // Test button handlers
+    testLikeBtn.addEventListener('click', ()=> {
+      // simulate likes so a single press triggers the like rule
+      if (!overlaySettings || !overlaySettings.likesPerTrigger) ensureSettings();
+      // set counter to one less than trigger then send one like
+      likeCounter = Math.max(0, overlaySettings.likesPerTrigger - 1);
+      handleEvent('like', { user: 'TestLike' });
+    });
+
+    testFollowBtn.addEventListener('click', ()=> {
+      handleEvent('follow', { user: 'TestFollow' });
+    });
+
+    testShareBtn.addEventListener('click', ()=> {
+      handleEvent('share', { user: 'TestShare' });
+    });
+
+    testGiftBtn.addEventListener('click', ()=> {
+      const coins = Math.max(1, parseInt(giftCoins.value,10) || 1);
+      const gName = (giftName.value || 'TestGift').trim();
+      handleEvent('gift', { user: 'TestGifter', coinCount: coins, giftName: gName });
     });
 
     // Init
     populateBosses();
-    window.addEventListener('DOMContentLoaded', () => {
-      resetBoss();
+    window.addEventListener('DOMContentLoaded', ()=>{
+      wsHostInput.value = localStorage.getItem(KEY_WS) || 'localhost:21213';
+      initFromPublished();
       initSocket();
     });
   </script>
 </body>
 </html>
+
