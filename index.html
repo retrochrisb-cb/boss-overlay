@@ -22,7 +22,7 @@
     #controls{
       position:absolute; top:10px; left:10px; z-index:60;
       background:var(--bg-overlay); color:var(--ui-white); padding:10px; border-radius:6px; font-size:12px;
-      max-width:620px;
+      max-width:720px;
     }
     #controls label{display:inline-block; font-size:11px; margin-right:6px;}
     #controls select,#controls input[type="number"],#controls input[type="text"],#controls button,#controls input[type="file"],#controls input[type="color"]{
@@ -54,8 +54,9 @@
     .inlineRow{display:flex; align-items:center; flex-wrap:wrap;}
     .inlineRow > * { margin-right:6px; margin-bottom:6px; }
     .testBtn { background:#0a84ff; color:#fff; padding:6px 8px; border-radius:4px; }
-    .testInput { width:70px; }
-    @media (max-width:620px){ #controls{max-width:320px;} #boss{max-width:320px; max-height:320px;} #healthBarContainer{width:320px;} }
+    .testInput { width:80px; }
+    .miniNote{font-size:10px; opacity:0.85;}
+    @media (max-width:720px){ #controls{max-width:340px;} #boss{max-width:320px; max-height:320px;} #healthBarContainer{width:320px;} }
   </style>
 </head>
 <body>
@@ -71,11 +72,11 @@
       <button id="resetBtn">Reset</button>
       <button id="addBossBtn">Add Boss</button>
       <button id="deleteBossBtn">Delete</button>
-      <button id="publishBtn" title="Push selected boss and settings to viewers">Publish</button>
+      <button id="publishBtn" title="Push selected boss and settings to localStorage and prepare JSON downloads">Publish</button>
+      <span class="miniNote">Publish prepares JSON downloads; upload them to your repo for auto-sync.</span>
     </div>
 
-    <span class="sectionTitle">Damage Controls</span>
-
+    <span class="sectionTitle">Damage controls + tests</span>
     <div class="inlineRow">
       <label for="likesPerTrigger">Likes per trigger</label>
       <input id="likesPerTrigger" type="number" min="1" value="50" />
@@ -125,13 +126,24 @@
       <button id="resetStyleBtn">Reset Style</button>
     </div>
 
-    <span class="sectionTitle">TikFinity</span>
+    <span class="sectionTitle">Live event bridge</span>
     <div class="inlineRow">
-      <label for="wsHostInput">Host</label>
-      <input id="wsHostInput" type="text" placeholder="localhost:21213" style="font-family:monospace;width:160px;" />
+      <label for="wsHostInput">WS host</label>
+      <input id="wsHostInput" type="text" placeholder="localhost:21213" style="font-family:monospace;width:180px;" />
       <button id="saveWsHostBtn">Save</button>
       <button id="clearWsHostBtn">Clear</button>
     </div>
+
+    <span class="sectionTitle">Shared JSON auto-sync</span>
+    <div class="inlineRow">
+      <label for="jsonUrlInput">Published.json URL</label>
+      <input id="jsonUrlInput" type="text" style="font-family:monospace;width:280px;" placeholder="https://retrochris-cb.github.io/boss-overlay/published.json" />
+      <button id="saveJsonUrlBtn">Save</button>
+      <button id="downloadPublishedBtn">Download published.json</button>
+      <button id="downloadSettingsBtn">Download settings.json</button>
+      <button id="downloadStyleBtn">Download style.json</button>
+    </div>
+    <div class="miniNote">Upload these JSON files to your repo root. Viewer fetches them on load for cross-browser sync.</div>
 
     <div id="addBossForm">
       <div class="row"><input id="newBossName" type="text" placeholder="Boss Name" /></div>
@@ -177,6 +189,7 @@
     const KEY_STYLE = 'overlayStyle';
     const KEY_WS = 'tf_ws_host';
     const KEY_SETTINGS = 'overlaySettings';
+    const KEY_JSON_URL = 'overlay_json_url';
 
     // Elements
     const bossImg = document.getElementById('boss');
@@ -231,10 +244,15 @@
     const saveStyleBtn = document.getElementById('saveStyleBtn');
     const resetStyleBtn = document.getElementById('resetStyleBtn');
 
-    // TikFinity host
+    // WS + JSON URL
     const wsHostInput = document.getElementById('wsHostInput');
     const saveWsHostBtn = document.getElementById('saveWsHostBtn');
     const clearWsHostBtn = document.getElementById('clearWsHostBtn');
+    const jsonUrlInput = document.getElementById('jsonUrlInput');
+    const saveJsonUrlBtn = document.getElementById('saveJsonUrlBtn');
+    const downloadPublishedBtn = document.getElementById('downloadPublishedBtn');
+    const downloadSettingsBtn = document.getElementById('downloadSettingsBtn');
+    const downloadStyleBtn = document.getElementById('downloadStyleBtn');
 
     // Data
     let bosses = JSON.parse(localStorage.getItem(KEY_BOSSES) || '{}');
@@ -292,7 +310,8 @@
       const percent = Math.max(0, Math.round((bossState.health / bossState.maxHealth) * 100));
       healthBar.style.width = percent + '%';
       healthPercent.textContent = percent + '%';
-      healthBar.style.background = `linear-gradient(90deg, ${getStyle().hpStart}, ${getStyle().hpEnd})`;
+      const s = getStyle();
+      healthBar.style.background = `linear-gradient(90deg, ${s.hpStart}, ${s.hpEnd})`;
     }
 
     function updateLeaderboard() {
@@ -303,12 +322,10 @@
 
     function showDamage() {
       if (bossState.health <= 0) {
-        // boss defeated: hide boss image and show MVP
         bossImg.style.display = 'none';
         showMVP();
         return;
       }
-      // normal behavior
       if (publishedPayload && (publishedPayload.damageData || publishedPayload.normalData)) {
         bossImg.src = publishedPayload.damageData || publishedPayload.normalData || TRANSPARENT_1PX;
         setTimeout(()=> { if (bossState.health > 0) bossImg.src = publishedPayload.normalData || TRANSPARENT_1PX; }, 500);
@@ -320,7 +337,7 @@
     }
 
     function applyDamage(amount, user='Viewer', source='Attack') {
-      if (bossState.health <= 0) return; // already defeated
+      if (bossState.health <= 0) return;
       bossState.health -= amount;
       if (bossState.health < 0) bossState.health = 0;
       damageLog[user] = (damageLog[user] || 0) + amount;
@@ -357,11 +374,9 @@
         mvpNameEl.textContent = 'No contributors';
         mvpDamageEl.textContent = '';
       }
-      // hide boss image and show MVP block
       bossImg.style.display = 'none';
       mvpDisplay.style.display = 'block';
     }
-
     function hideMVP() {
       mvpDisplay.style.display = 'none';
       mvpNameEl.textContent = '';
@@ -369,6 +384,7 @@
       bossImg.style.display = 'block';
     }
 
+    // Resize + dataURL
     function resizeImageFileToDataURL(file, maxDim=800, mime='image/png', quality=0.9) {
       return new Promise((resolve,reject)=>{
         const img = new Image();
@@ -396,59 +412,7 @@
       });
     }
 
-    function publishSelectedBoss() {
-      const key = bossSelector.value;
-      if (!key) { alert('No boss selected'); return; }
-      const payload = {
-        name: bosses[key].name || key,
-        normalData: bosses[key].normalData,
-        damageData: bosses[key].damageData,
-        maxHealth: parseInt(healthInput.value,10) || 1000,
-        timestamp: Date.now()
-      };
-      localStorage.setItem(KEY_PUBLISHED, JSON.stringify(payload));
-      localStorage.setItem(KEY_STYLE, JSON.stringify(getStyle()));
-      localStorage.setItem(KEY_SETTINGS, JSON.stringify(overlaySettings));
-      publishedPayload = payload;
-      // reset runtime state for new publish
-      bossState.maxHealth = payload.maxHealth || 1000;
-      bossState.health = bossState.maxHealth;
-      damageLog = {};
-      hideMVP();
-      updateLeaderboard();
-      updateHealthBar();
-      try {
-        window.dispatchEvent(new StorageEvent('storage', { key: KEY_PUBLISHED, newValue: JSON.stringify(payload) }));
-      } catch (e) {}
-      alert('Published to viewers');
-    }
-
-    function exportBosses() {
-      const data = JSON.stringify(bosses, null, 2);
-      const blob = new Blob([data], {type:'application/json'});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = 'bosses.json';
-      document.body.appendChild(a); a.click(); a.remove();
-      URL.revokeObjectURL(url);
-    }
-    function importBossesFile(file) {
-      const reader = new FileReader();
-      reader.onload = ()=> {
-        try {
-          const obj = JSON.parse(reader.result);
-          if (typeof obj !== 'object') throw new Error('Invalid JSON');
-          for (const k of Object.keys(obj)) bosses[k] = obj[k];
-          saveBossesToStorage();
-          populateBosses();
-          alert('Imported bosses');
-        } catch (e) {
-          alert('Failed to import: ' + e.message);
-        }
-      };
-      reader.readAsText(file);
-    }
-
+    // Style
     function getStyle() {
       const stored = JSON.parse(localStorage.getItem(KEY_STYLE) || '{}');
       return {
@@ -490,6 +454,7 @@
       alert('Style reset');
     }
 
+    // Save settings
     function saveSettingsFromUI() {
       overlaySettings.likesPerTrigger = Math.max(1, parseInt(likesPerTrigger.value,10) || 1);
       overlaySettings.likeMode = likeMode.value === 'fixed' ? 'fixed' : 'random';
@@ -508,6 +473,7 @@
       alert('Settings reset to defaults');
     }
 
+    // WebSocket bridge
     function initSocket() {
       const wsHost = localStorage.getItem(KEY_WS) || 'localhost:21213';
       try {
@@ -522,6 +488,7 @@
       } catch (e) { console.warn('WebSocket init failed', e); }
     }
 
+    // Event handling
     function handleEvent(eventType, payload={}) {
       if (!overlaySettings || !overlaySettings.likesPerTrigger) ensureSettings();
       switch (eventType) {
@@ -529,12 +496,9 @@
           likeCounter++;
           if (likeCounter >= overlaySettings.likesPerTrigger) {
             likeCounter = 0;
-            let dmg = 0;
-            if (overlaySettings.likeMode === 'fixed') {
-              dmg = overlaySettings.likeFixedDamage;
-            } else {
-              dmg = Math.floor(Math.random()*6) + 1;
-            }
+            let dmg = overlaySettings.likeMode === 'fixed'
+              ? overlaySettings.likeFixedDamage
+              : Math.floor(Math.random()*6) + 1;
             dmg = Math.round(dmg * overlaySettings.difficultyMultiplier);
             applyDamage(dmg, payload.user || 'Viewer', 'Like Roll');
           }
@@ -556,6 +520,7 @@
       }
     }
 
+    // Storage listen (local fallback)
     window.addEventListener('storage', (e) => {
       if (e.key === KEY_PUBLISHED && e.newValue) {
         try { const payload = JSON.parse(e.newValue); loadPublished(payload); } catch (err) { console.warn('Invalid published payload', err); }
@@ -568,6 +533,7 @@
       }
     });
 
+    // Load published
     function loadPublished(payload) {
       if (!payload) return;
       publishedPayload = payload;
@@ -582,27 +548,49 @@
       bossImg.style.display = 'block';
     }
 
-    function initFromPublished() {
-      const pub = localStorage.getItem(KEY_PUBLISHED);
-      if (pub) {
-        try { const payload = JSON.parse(pub); loadPublished(payload); } catch (e) { console.warn('Invalid published payload', e); }
-      } else {
-        const keys = Object.keys(bosses);
-        if (keys.length) {
-          bossImg.src = getNormalSrc(keys[0]);
-          bossState.maxHealth = parseInt(healthInput.value,10) || 1000;
-          bossState.health = bossState.maxHealth;
-          updateHealthBar();
-        } else {
-          bossImg.src = TRANSPARENT_1PX;
-        }
-      }
-      const style = getStyle();
-      applyStyle(style);
+    // Init from shared JSON or localStorage
+    async function initFromSharedOrLocal() {
+      // Apply style and settings first
+      applyStyle(getStyle());
       overlaySettings = JSON.parse(localStorage.getItem(KEY_SETTINGS) || '{}');
       ensureSettings();
+
+      const defaultJsonUrl = 'https://retrochris-cb.github.io/boss-overlay/published.json';
+      const jsonUrl = localStorage.getItem(KEY_JSON_URL) || defaultJsonUrl;
+
+      try {
+        const res = await fetch(jsonUrl, { cache: 'no-store' });
+        if (res.ok) {
+          const payload = await res.json();
+          loadPublished(payload);
+          console.log('Loaded published.json from', jsonUrl);
+          return;
+        } else {
+          console.warn('published.json not found, status', res.status);
+        }
+      } catch (e) {
+        console.warn('Failed to fetch published.json', e);
+      }
+
+      // Fallback: localStorage
+      const pub = localStorage.getItem(KEY_PUBLISHED);
+      if (pub) {
+        try { const payload = JSON.parse(pub); loadPublished(payload); return; } catch (e) { console.warn('Invalid published payload in localStorage', e); }
+      }
+
+      // If nothing published yet, show first boss
+      const keys = Object.keys(bosses);
+      if (keys.length) {
+        bossImg.src = getNormalSrc(keys[0]);
+        bossState.maxHealth = parseInt(healthInput.value,10) || 1000;
+        bossState.health = bossState.maxHealth;
+        updateHealthBar();
+      } else {
+        bossImg.src = TRANSPARENT_1PX;
+      }
     }
 
+    // Admin actions
     addBossBtn.addEventListener('click', ()=> addBossForm.style.display = addBossForm.style.display === 'none' ? 'block' : 'none');
     cancelAddBtn.addEventListener('click', ()=> { addBossForm.style.display='none'; newBossNameInput.value=''; newBossNormalInput.value=''; newBossDamageInput.value=''; });
 
@@ -645,10 +633,8 @@
     });
 
     resetBtn.addEventListener('click', ()=> {
-      // Reset clears current boss state and hides MVP
       resetBoss();
       hideMVP();
-      // If a published payload exists, reload it so viewers sync
       const pub = localStorage.getItem(KEY_PUBLISHED);
       if (pub) {
         try { loadPublished(JSON.parse(pub)); } catch(e){console.warn(e);}
@@ -656,7 +642,29 @@
     });
     bossSelector.addEventListener('change', resetBoss);
 
-    publishBtn.addEventListener('click', publishSelectedBoss);
+    publishBtn.addEventListener('click', ()=> {
+      const key = bossSelector.value;
+      if (!key) { alert('No boss selected'); return; }
+      const payload = {
+        name: bosses[key].name || key,
+        normalData: bosses[key].normalData,
+        damageData: bosses[key].damageData,
+        maxHealth: parseInt(healthInput.value,10) || 1000,
+        timestamp: Date.now()
+      };
+      localStorage.setItem(KEY_PUBLISHED, JSON.stringify(payload));
+      localStorage.setItem(KEY_STYLE, JSON.stringify(getStyle()));
+      localStorage.setItem(KEY_SETTINGS, JSON.stringify(overlaySettings));
+      publishedPayload = payload;
+      bossState.maxHealth = payload.maxHealth || 1000;
+      bossState.health = bossState.maxHealth;
+      damageLog = {};
+      likeCounter = 0;
+      hideMVP();
+      updateLeaderboard();
+      updateHealthBar();
+      alert('Published locally. Now click “Download published.json” and upload it to your repo.');
+    });
 
     exportBtn.addEventListener('click', exportBosses);
     importBtn.addEventListener('click', ()=> {
@@ -673,15 +681,71 @@
 
     saveWsHostBtn.addEventListener('click', ()=> {
       const v = wsHostInput.value.trim();
-      if (v) { localStorage.setItem(KEY_WS, v); alert('Saved host'); location.reload(); }
+      if (v) { localStorage.setItem(KEY_WS, v); alert('Saved WS host'); location.reload(); }
     });
-    clearWsHostBtn.addEventListener('click', ()=> { localStorage.removeItem(KEY_WS); wsHostInput.value='localhost:21213'; alert('Cleared host'); location.reload(); });
+    clearWsHostBtn.addEventListener('click', ()=> { localStorage.removeItem(KEY_WS); wsHostInput.value='localhost:21213'; alert('Cleared WS host'); location.reload(); });
 
+    // JSON URL controls
+    saveJsonUrlBtn.addEventListener('click', ()=> {
+      const v = jsonUrlInput.value.trim();
+      if (v) { localStorage.setItem(KEY_JSON_URL, v); alert('Saved published.json URL'); }
+    });
+
+    // Download JSON helpers for upload
+    function downloadJson(filename, obj) {
+      const data = JSON.stringify(obj, null, 2);
+      const blob = new Blob([data], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    }
+    downloadPublishedBtn.addEventListener('click', ()=> {
+      const pub = localStorage.getItem(KEY_PUBLISHED);
+      if (!pub) { alert('Nothing published yet. Click Publish first.'); return; }
+      downloadJson('published.json', JSON.parse(pub));
+    });
+    downloadSettingsBtn.addEventListener('click', ()=> {
+      downloadJson('settings.json', overlaySettings);
+    });
+    downloadStyleBtn.addEventListener('click', ()=> {
+      const s = JSON.parse(localStorage.getItem(KEY_STYLE) || '{}') || getStyle();
+      downloadJson('style.json', s);
+    });
+
+    // Demo click test
     document.body.addEventListener('click', (e)=>{
       if (e.target.closest('#controls')) return;
       const dmg = Math.floor(Math.random()*6)+1;
       applyDamage(dmg, 'DemoUser', 'Test Click');
     });
+
+    function exportBosses() {
+      const data = JSON.stringify(bosses, null, 2);
+      const blob = new Blob([data], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'bosses.json';
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    }
+    function importBossesFile(file) {
+      const reader = new FileReader();
+      reader.onload = ()=> {
+        try {
+          const obj = JSON.parse(reader.result);
+          if (typeof obj !== 'object') throw new Error('Invalid JSON');
+          for (const k of Object.keys(obj)) bosses[k] = obj[k];
+          saveBossesToStorage();
+          populateBosses();
+          alert('Imported bosses');
+        } catch (e) {
+          alert('Failed to import: ' + e.message);
+        }
+      };
+      reader.readAsText(file);
+    }
 
     function resetBoss() {
       const selected = bossSelector.value;
@@ -697,21 +761,14 @@
       bossImg.style.display = 'block';
     }
 
-    // Test button handlers
+    // Test buttons
     testLikeBtn.addEventListener('click', ()=> {
       if (!overlaySettings || !overlaySettings.likesPerTrigger) ensureSettings();
       likeCounter = Math.max(0, overlaySettings.likesPerTrigger - 1);
       handleEvent('like', { user: 'TestLike' });
     });
-
-    testFollowBtn.addEventListener('click', ()=> {
-      handleEvent('follow', { user: 'TestFollow' });
-    });
-
-    testShareBtn.addEventListener('click', ()=> {
-      handleEvent('share', { user: 'TestShare' });
-    });
-
+    testFollowBtn.addEventListener('click', ()=> handleEvent('follow', { user: 'TestFollow' }) );
+    testShareBtn.addEventListener('click', ()=> handleEvent('share', { user: 'TestShare' }) );
     testGiftBtn.addEventListener('click', ()=> {
       const coins = Math.max(1, parseInt(giftCoins.value,10) || 1);
       const gName = (giftName.value || 'TestGift').trim();
@@ -720,14 +777,14 @@
 
     // Init
     populateBosses();
-    window.addEventListener('DOMContentLoaded', ()=>{
+    window.addEventListener('DOMContentLoaded', async ()=>{
       wsHostInput.value = localStorage.getItem(KEY_WS) || 'localhost:21213';
-      initFromPublished();
+      jsonUrlInput.value = localStorage.getItem(KEY_JSON_URL) || 'https://retrochris-cb.github.io/boss-overlay/published.json';
+      await initFromSharedOrLocal();
       initSocket();
     });
   </script>
 </body>
 </html>
-
 
 
