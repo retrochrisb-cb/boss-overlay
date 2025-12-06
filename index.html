@@ -2,67 +2,77 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Boss Overlay</title>
+  <title>Boss Overlay — Auto Publish</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
-    :root{
-      --bar-width:420px; --bar-height:36px;
-      --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-      --bg: rgba(0,0,0,0.6); --white:#fff;
-      --hp-start:#ff6b6b; --hp-end:#8b0000;
-    }
-    html,body{height:100%;margin:0;background:transparent;font-family:var(--font);color:var(--white);}
-    /* Admin panel */
-    #controls{position:absolute;left:12px;top:12px;z-index:80;background:var(--bg);padding:10px;border-radius:8px;max-width:760px;}
-    #controls input,#controls select,#controls button{margin:6px 6px 6px 0;padding:6px;border-radius:6px;border:0;background:#222;color:#fff;}
-    #addBossForm{display:none;background:#111;padding:8px;border-radius:6px;margin-top:6px;}
-    /* Viewer UI */
-    #viewer{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:36px;pointer-events:none;}
-    #boss{max-width:420px;max-height:420px;image-rendering:pixelated;pointer-events:none;}
+    :root{--bar-width:420px;--bar-height:36px;--bg:rgba(0,0,0,0.6);--white:#fff}
+    html,body{height:100%;margin:0;background:transparent;font-family:system-ui,Arial;color:var(--white)}
+    /* Admin */
+    #controls{position:absolute;left:12px;top:12px;z-index:90;background:var(--bg);padding:10px;border-radius:8px;max-width:760px}
+    #controls input,#controls select,#controls button{margin:6px 6px 6px 0;padding:6px;border-radius:6px;border:0;background:#222;color:#fff}
+    #addForm{display:none;background:#111;padding:8px;border-radius:6px;margin-top:6px}
+    /* Viewer */
+    #viewer{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:36px;pointer-events:none}
+    #boss{max-width:420px;max-height:420px;image-rendering:pixelated;pointer-events:none}
     #healthWrap{width:var(--bar-width);height:var(--bar-height);background:#222;border:4px solid #000;border-radius:6px;overflow:hidden;margin-top:12px;position:relative}
-    #healthBar{height:100%;width:100%;background:linear-gradient(90deg,var(--hp-start),var(--hp-end));transition:width .25s linear}
-    #healthPct{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-weight:bold;pointer-events:none}
-    #damageText,#leaderboard,#mvp{margin-top:8px;text-align:center;pointer-events:none}
-    /* small screens */
+    #healthBar{height:100%;width:100%;background:linear-gradient(90deg,#ff6b6b,#8b0000);transition:width .25s linear}
+    #healthPct{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-weight:bold}
+    #damageText,#leaderboard,#mvp{margin-top:8px;text-align:center}
     @media (max-width:720px){ :root{--bar-width:320px} }
   </style>
 </head>
 <body>
-  <!-- Admin controls (only visible in admin mode) -->
+  <!-- Admin controls -->
   <div id="controls" aria-hidden="true">
     <div>
-      <label>Boss</label>
-      <select id="bossSelector"></select>
-      <label>Max HP</label>
-      <input id="healthInput" type="number" value="1000" min="1" />
+      <label>Repo owner</label>
+      <input id="ghOwner" type="text" placeholder="retrochrisb-cb" value="retrochrisb-cb" />
+      <label>Repo</label>
+      <input id="ghRepo" type="text" placeholder="boss-overlay" value="boss-overlay" />
     </div>
 
     <div>
-      <button id="resetBtn">Reset</button>
-      <button id="addBossBtn">Add Boss</button>
-      <button id="deleteBossBtn">Delete</button>
-      <button id="publishBtn">Publish</button>
+      <label>GitHub Token</label>
+      <input id="ghToken" type="password" placeholder="Paste PAT (repo:contents)" style="width:360px" />
+      <button id="saveToken">Save Token</button>
+      <button id="clearToken">Clear Token</button>
     </div>
 
-    <div id="addBossForm" aria-hidden="true">
-      <div><label>Name</label><input id="newBossName" type="text" placeholder="Christmas Ork" /></div>
+    <div style="margin-top:6px">
+      <label>Boss</label>
+      <select id="bossSelect"></select>
+      <label>Max HP</label>
+      <input id="maxHp" type="number" value="1000" min="1" />
+    </div>
+
+    <div style="margin-top:6px">
+      <button id="prevBtn">Prev</button>
+      <button id="nextBtn">Next Boss</button>
+      <button id="publishBtn">Publish (local)</button>
+      <label style="margin-left:8px"><input id="autoNext" type="checkbox" /> Auto Next</label>
+    </div>
+
+    <div style="margin-top:6px">
+      <button id="addBtn">Add Boss</button>
+      <button id="delBtn">Delete Boss</button>
+      <button id="downloadPublished">Download published.json</button>
+    </div>
+
+    <div id="addForm">
+      <div><label>Name</label><input id="bossName" type="text" /></div>
       <div>
         <label>Normal PNG</label><input id="normalFile" type="file" accept="image/png" />
         <label>Damage PNG</label><input id="damageFile" type="file" accept="image/png" />
       </div>
-      <div><button id="saveBossBtn">Save Boss</button><button id="cancelAddBtn">Cancel</button></div>
-      <div style="font-size:12px;opacity:.9;margin-top:6px">Tip: keep PNGs under ~800px for reliable embedding.</div>
+      <div><button id="saveBtn">Save</button><button id="cancelBtn">Cancel</button></div>
+      <div style="font-size:12px;margin-top:6px">Tip: keep PNGs under ~800px for reliable embedding.</div>
     </div>
 
-    <hr style="border:0;border-top:1px solid #333;margin:8px 0" />
-
-    <div>
-      <label>Published.json URL</label>
-      <input id="jsonUrlInput" type="text" style="width:360px" placeholder="https://retrochrisb-cb.github.io/boss-overlay/published.json" />
-      <button id="saveJsonUrlBtn">Save</button>
-      <button id="downloadPublishedBtn">Download published.json</button>
+    <div style="margin-top:8px">
+      <label>Published.json URL (viewer)</label>
+      <input id="jsonUrl" type="text" style="width:360px" placeholder="https://youruser.github.io/boss-overlay/published.json" />
+      <button id="saveJson">Save</button>
     </div>
-    <div style="font-size:12px;margin-top:6px">Publish → Download → Upload `published.json` to your repo root for Studio to fetch.</div>
   </div>
 
   <!-- Viewer -->
@@ -78,23 +88,17 @@
   </div>
 
 <script>
-/* ======= CONFIG ======= */
-const DEFAULT_JSON = 'https://retrochrisb-cb.github.io/boss-overlay/published.json';
-const KEY_BOSSES = 'bosses';
-const KEY_PUBLISHED = 'publishedBoss';
-const KEY_JSON = 'overlay_json_url';
+/* ====== Simple overlay with GitHub auto-publish (Option A) ====== */
+const KEY_BOSSES = 'auto_bosses';
+const KEY_PUBLISHED = 'auto_published';
+const KEY_JSON = 'auto_json_url';
+const KEY_GHTOKEN = 'auto_github_pat';
+const DEFAULT_JSON = (location.origin + location.pathname).replace(/\/$/, '') + '/published.json';
 const TRANSPARENT = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=';
 
-/* Admin detection */
 const IS_ADMIN = new URL(location.href).searchParams.get('admin') === '1';
+if (!IS_ADMIN) { const c = document.getElementById('controls'); if (c) c.style.display = 'none'; }
 
-/* Immediately hide admin controls in viewer mode to avoid flicker */
-(function(){
-  const c = document.getElementById('controls');
-  if (c && !IS_ADMIN) c.style.display = 'none';
-})();
-
-/* Run all DOM logic after ready */
 window.addEventListener('DOMContentLoaded', async () => {
   // Elements
   const bossImg = document.getElementById('boss');
@@ -106,273 +110,251 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   // Admin elements
   const controls = document.getElementById('controls');
-  const bossSelector = document.getElementById('bossSelector');
-  const healthInput = document.getElementById('healthInput');
-  const resetBtn = document.getElementById('resetBtn');
-  const addBossBtn = document.getElementById('addBossBtn');
-  const deleteBossBtn = document.getElementById('deleteBossBtn');
+  const ghOwner = document.getElementById('ghOwner');
+  const ghRepo = document.getElementById('ghRepo');
+  const ghTokenInput = document.getElementById('ghToken');
+  const saveTokenBtn = document.getElementById('saveToken');
+  const clearTokenBtn = document.getElementById('clearToken');
+
+  const bossSelect = document.getElementById('bossSelect');
+  const maxHp = document.getElementById('maxHp');
+  const prevBtn = document.getElementById('prevBtn');
+  const nextBtn = document.getElementById('nextBtn');
   const publishBtn = document.getElementById('publishBtn');
-  const addBossForm = document.getElementById('addBossForm');
-  const saveBossBtn = document.getElementById('saveBossBtn');
-  const cancelAddBtn = document.getElementById('cancelAddBtn');
-  const newBossName = document.getElementById('newBossName');
+  const autoNext = document.getElementById('autoNext');
+  const addBtn = document.getElementById('addBtn');
+  const delBtn = document.getElementById('delBtn');
+  const addForm = document.getElementById('addForm');
+  const bossName = document.getElementById('bossName');
   const normalFile = document.getElementById('normalFile');
   const damageFile = document.getElementById('damageFile');
-  const jsonUrlInput = document.getElementById('jsonUrlInput');
-  const saveJsonUrlBtn = document.getElementById('saveJsonUrlBtn');
-  const downloadPublishedBtn = document.getElementById('downloadPublishedBtn');
+  const saveBtn = document.getElementById('saveBtn');
+  const cancelBtn = document.getElementById('cancelBtn');
+  const downloadPublished = document.getElementById('downloadPublished');
+  const jsonUrl = document.getElementById('jsonUrl');
+  const saveJson = document.getElementById('saveJson');
 
   // State
   let bosses = JSON.parse(localStorage.getItem(KEY_BOSSES) || '{}');
   let published = null;
   let bossState = { health: 1000, max: 1000 };
   let damageLog = {};
-  let lastPublishedTs = null;
+  let lastTs = null;
 
-  // Merge any embedded bosses (none by default)
-  bosses = Object.assign({}, bosses);
-
-  /* Helpers */
+  // Helpers
   function saveBosses(){ localStorage.setItem(KEY_BOSSES, JSON.stringify(bosses)); }
-  function getJsonUrl(){
-    const saved = localStorage.getItem(KEY_JSON) || jsonUrlInput.value || DEFAULT_JSON;
-    if (!saved) return DEFAULT_JSON;
-    if (saved.endsWith('/')) return saved + 'published.json';
-    if (saved.endsWith('published.json')) return saved;
-    // if looks like repo root without slash
-    if (!saved.includes('published.json')) return saved + (saved.includes('?') ? '&' : '/') + 'published.json';
-    return saved;
-  }
+  function getJsonUrl(){ const v = localStorage.getItem(KEY_JSON) || jsonUrl.value || DEFAULT_JSON; if (v.endsWith('/')) return v + 'published.json'; if (v.endsWith('published.json')) return v; if (!v.includes('published.json')) return v + (v.includes('?') ? '&' : '/') + 'published.json'; return v; }
   function setHealthUI(){ const pct = Math.max(0, Math.round((bossState.health / bossState.max) * 100)); healthBar.style.width = pct + '%'; healthPct.textContent = pct + '%'; }
   function updateLeaderboard(){ const arr = Object.entries(damageLog).sort((a,b)=>b[1]-a[1]); leaderboard.innerHTML = arr.length ? arr.map((r,i)=>`${i+1}. ${r[0]}: ${r[1]} dmg`).join('<br>') : 'No damage yet'; }
-  function showDamageText(t){ damageText.textContent = t; setTimeout(()=>{ if (bossState.health>0) damageText.textContent=''; }, 2500); }
-  function showMVP(){ const arr = Object.entries(damageLog).sort((a,b)=>b[1]-a[1]); if (arr.length){ mvp.innerHTML = `🏆 MVP: ${arr[0][0]} — ${arr[0][1]} dmg`; } else mvp.innerHTML = 'No contributors'; }
+  function showMVP(){ const arr = Object.entries(damageLog).sort((a,b)=>b[1]-a[1]); mvp.innerHTML = arr.length ? `🏆 MVP: ${arr[0][0]} — ${arr[0][1]} dmg` : 'No contributors'; }
 
   function getNormalSrc(key){ const b = bosses[key]||{}; return b.normalData||b.normalUrl||TRANSPARENT; }
   function getDamageSrc(key){ const b = bosses[key]||{}; return b.damageData||b.damageUrl||getNormalSrc(key); }
 
-  async function fileToDataUrl(file){
-    return new Promise((res,rej)=>{
-      try {
-        const r = new FileReader();
-        r.onload = ()=>res(r.result);
-        r.onerror = e=>rej(e);
-        r.readAsDataURL(file);
-      } catch(e){ rej(e); }
-    });
-  }
+  async function fileToDataUrl(file){ return new Promise((res,rej)=>{ try{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=e=>rej(e); r.readAsDataURL(file);}catch(e){rej(e);} }); }
 
-  /* Populate boss dropdown */
-  function populateBosses(){
-    bossSelector.innerHTML = '';
+  function populateSelect(){
+    bossSelect.innerHTML = '';
     const keys = Object.keys(bosses);
-    for (const k of keys){
-      const o = document.createElement('option'); o.value = k; o.textContent = (bosses[k].name||k).replace(/_/g,' ');
-      bossSelector.appendChild(o);
-    }
-    if (keys.length) bossSelector.value = keys[0];
+    for (const k of keys){ const o = document.createElement('option'); o.value = k; o.textContent = (bosses[k].name||k).replace(/_/g,' '); bossSelect.appendChild(o); }
+    if (keys.length) bossSelect.value = keys[0];
   }
 
-  /* Load published payload into viewer */
   function loadPublished(p){
     if (!p) return;
     published = p;
     bossState.max = p.maxHealth || 1000;
     bossState.health = bossState.max;
     damageLog = {};
-    lastPublishedTs = p.timestamp || Date.now();
+    lastTs = p.timestamp || Date.now();
     bossImg.src = p.normalData || p.normalUrl || TRANSPARENT;
-    setHealthUI();
-    updateLeaderboard();
-    mvp.innerHTML = '';
+    setHealthUI(); updateLeaderboard(); mvp.textContent = '';
   }
 
-  /* Fetch published.json once */
   async function fetchPublishedOnce(){
     const url = getJsonUrl();
     try {
       const r = await fetch(url, {cache:'no-store'});
       if (!r.ok) return;
       const j = await r.json();
-      if (j && j.timestamp){
-        loadPublished(j);
-      }
-    } catch(e){
-      console.warn('published.json fetch failed', e);
-    }
+      if (j && j.timestamp) loadPublished(j);
+    } catch(e){ console.warn('published.json fetch failed', e); }
   }
 
-  /* Poll published.json for changes (viewer only) */
-  async function pollPublished(interval=7000){
-    if (IS_ADMIN) return; // admin doesn't need polling
+  async function pollPublished(interval=5000){
+    if (IS_ADMIN) return;
     const url = getJsonUrl();
     try {
       const r = await fetch(url, {cache:'no-store'});
       if (!r.ok) return;
       const j = await r.json();
-      if (j && j.timestamp && j.timestamp !== lastPublishedTs){
-        loadPublished(j);
-      }
-    } catch(e){
-      // ignore transient errors
-    } finally {
-      setTimeout(()=>pollPublished(interval), interval);
-    }
+      if (j && j.timestamp && j.timestamp !== lastTs) loadPublished(j);
+    } catch(e){}
+    setTimeout(()=>pollPublished(interval), interval);
   }
 
-  /* Apply damage visual and logic */
-  function applyDamage(amount, user='Viewer', source='Test'){
+  function applyDamage(amount, user='Viewer', source='Event'){
     if (bossState.health <= 0) return;
     bossState.health = Math.max(0, bossState.health - amount);
     damageLog[user] = (damageLog[user]||0) + amount;
     setHealthUI();
-    showDamageText(`${user} dealt ${amount} damage with ${source}!`);
-    // swap image briefly
+    damageText.textContent = `${user} dealt ${amount} damage with ${source}!`;
+    setTimeout(()=>{ if (bossState.health>0) damageText.textContent=''; }, 2000);
     try {
-      const sel = bossSelector.value;
+      const sel = bossSelect.value;
       const dmg = published ? (published.damageData||published.damageUrl) : getDamageSrc(sel);
       const norm = published ? (published.normalData||published.normalUrl) : getNormalSrc(sel);
       bossImg.src = dmg || norm || TRANSPARENT;
       setTimeout(()=>{ if (bossState.health>0) bossImg.src = norm || TRANSPARENT; }, 500);
-    } catch(e){ console.warn(e); }
+    } catch(e){}
     updateLeaderboard();
-    if (bossState.health === 0) setTimeout(()=>{ showMVP(); }, 800);
-  }
-
-  /* ===== Admin handlers (only attach if IS_ADMIN) ===== */
-  populateBosses();
-
-  if (IS_ADMIN){
-    // show controls explicitly
-    if (controls) controls.style.display = 'block';
-    // load saved json url into input
-    jsonUrlInput.value = localStorage.getItem(KEY_JSON) || DEFAULT_JSON;
-
-    addBossBtn.addEventListener('click', ()=> {
-      addBossForm.style.display = addBossForm.style.display === 'block' ? 'none' : 'block';
-    });
-    cancelAddBtn.addEventListener('click', ()=> addBossForm.style.display = 'none');
-
-    saveBossBtn.addEventListener('click', async ()=>{
-      const nameRaw = (newBossName.value||'').trim();
-      if (!nameRaw){ alert('Enter a boss name'); return; }
-      const key = nameRaw.replace(/\s+/g,'_').toLowerCase();
-      try {
-        let n = null, d = null;
-        if (normalFile.files && normalFile.files[0]) n = await fileToDataUrl(normalFile.files[0]);
-        if (damageFile.files && damageFile.files[0]) d = await fileToDataUrl(damageFile.files[0]);
-        bosses[key] = bosses[key] || {};
-        bosses[key].name = nameRaw;
-        if (n) bosses[key].normalData = n;
-        if (d) bosses[key].damageData = d;
-        saveBosses();
-        populateBosses();
-        addBossForm.style.display = 'none';
-        newBossName.value=''; normalFile.value=''; damageFile.value='';
-        alert('Boss saved locally. Select it and click Publish.');
-      } catch(e){
-        console.error(e);
-        alert('Failed to save boss. Try smaller PNGs (<800px).');
-      }
-    });
-
-    deleteBossBtn.addEventListener('click', ()=>{
-      const sel = bossSelector;
-      if (!sel || !sel.value) { alert('No boss selected'); return; }
-      if (!confirm('Delete ' + (sel.options[sel.selectedIndex]?.text || sel.value) + '?')) return;
-      delete bosses[sel.value];
-      saveBosses();
-      populateBosses();
-    });
-
-    publishBtn.addEventListener('click', ()=>{
-      const key = bossSelector.value;
-      if (!key){ alert('No boss selected'); return; }
-      const payload = {
-        name: bosses[key].name || key,
-        normalData: bosses[key].normalData || bosses[key].normalUrl || null,
-        damageData: bosses[key].damageData || bosses[key].damageUrl || null,
-        maxHealth: parseInt(healthInput.value,10) || 1000,
-        timestamp: Date.now()
-      };
-      localStorage.setItem(KEY_PUBLISHED, JSON.stringify(payload));
-      // set published in memory and UI
-      loadPublished(payload);
-      alert('Published locally. Click "Download published.json" to save and upload to repo root.');
-    });
-
-    downloadPublishedBtn.addEventListener('click', ()=>{
-      const pub = localStorage.getItem(KEY_PUBLISHED);
-      if (!pub){ alert('Nothing published yet. Click Publish first.'); return; }
-      const blob = new Blob([JSON.stringify(JSON.parse(pub),null,2)], {type:'application/json'});
-      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'published.json';
-      document.body.appendChild(a); a.click(); a.remove();
-      URL.revokeObjectURL(a.href);
-    });
-
-    saveJsonUrlBtn.addEventListener('click', ()=>{
-      const v = jsonUrlInput.value || DEFAULT_JSON;
-      localStorage.setItem(KEY_JSON, v);
-      alert('Published.json URL saved.');
-    });
-
-    // Admin quick test: apply test damage from admin UI (for convenience)
-    resetBtn.addEventListener('click', ()=>{
-      bossState.max = parseInt(healthInput.value,10) || 1000;
-      bossState.health = bossState.max;
-      damageLog = {};
-      setHealthUI(); updateLeaderboard(); damageText.textContent=''; mvp.textContent='';
-      const sel = bossSelector.value;
-      bossImg.src = getNormalSrc(sel);
-    });
-
-    // allow quick test by clicking boss image in admin
-    bossImg.addEventListener('click', ()=> applyDamage(3, 'AdminTest', 'Click'));
-
-  } else {
-    // viewer mode: hide admin controls (defensive)
-    if (controls) controls.remove();
-  }
-
-  /* Viewer initial load */
-  // Try to load published.json (either from repo or localStorage)
-  await fetchPublishedOnce();
-  // If nothing loaded, try localStorage published
-  if (!published){
-    const pub = localStorage.getItem(KEY_PUBLISHED);
-    if (pub) {
-      try { loadPublished(JSON.parse(pub)); } catch(e){ console.warn('invalid local published', e); }
+    if (bossState.health === 0){
+      setTimeout(()=>{ showMVP(); if (IS_ADMIN && autoNext.checked) nextBoss(true); }, 800);
     }
   }
-  // If still nothing, fallback to first stored boss
+
+  /* GitHub upload helper */
+  async function uploadPublishedToGitHub({ owner, repo, path='published.json', token, contentObj, commitMessage='Update published.json' }) {
+    if (!token) throw new Error('GitHub token required');
+    const apiBase = `https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}`;
+    let sha = null;
+    try {
+      const getRes = await fetch(apiBase, { method: 'GET', headers: { Authorization: 'token ' + token, Accept: 'application/vnd.github.v3+json' }});
+      if (getRes.ok) { const getJson = await getRes.json(); sha = getJson.sha; }
+      else if (getRes.status !== 404) { const txt = await getRes.text(); console.warn('GitHub GET returned', getRes.status, txt); }
+    } catch (e) { console.warn('GitHub GET failed', e); }
+    const jsonText = JSON.stringify(contentObj, null, 2);
+    const b64 = btoa(unescape(encodeURIComponent(jsonText)));
+    const body = { message: commitMessage, content: b64, committer: { name: "Overlay Admin", email: "overlay@example.com" } };
+    if (sha) body.sha = sha;
+    const putRes = await fetch(apiBase, { method: 'PUT', headers: { Authorization: 'token ' + token, Accept: 'application/vnd.github.v3+json' }, body: JSON.stringify(body) });
+    if (!putRes.ok) {
+      const errText = await putRes.text();
+      throw new Error('GitHub upload failed: ' + putRes.status + ' ' + errText);
+    }
+    return await putRes.json();
+  }
+
+  /* Admin bindings */
+  populateSelect();
+
+  // Token save/clear
+  saveTokenBtn.addEventListener('click', ()=> {
+    const t = ghTokenInput.value.trim();
+    if (!t) return alert('Paste a GitHub PAT with repo:contents scope');
+    localStorage.setItem(KEY_GHTOKEN, t);
+    alert('Token saved locally (browser).');
+    ghTokenInput.value = '';
+  });
+  clearTokenBtn.addEventListener('click', ()=> { localStorage.removeItem(KEY_GHTOKEN); alert('Token cleared'); });
+
+  addBtn.addEventListener('click', ()=> addForm.style.display = 'block');
+  cancelBtn.addEventListener('click', ()=> addForm.style.display = 'none');
+
+  saveBtn.addEventListener('click', async ()=>{
+    const name = (bossName.value||'').trim();
+    if (!name) { alert('Enter a name'); return; }
+    const key = name.replace(/\s+/g,'_').toLowerCase();
+    try {
+      let n = null, d = null;
+      if (normalFile.files && normalFile.files[0]) n = await fileToDataUrl(normalFile.files[0]);
+      if (damageFile.files && damageFile.files[0]) d = await fileToDataUrl(damageFile.files[0]);
+      bosses[key] = bosses[key] || {};
+      bosses[key].name = name;
+      if (n) bosses[key].normalData = n;
+      if (d) bosses[key].damageData = d;
+      saveBosses(); populateSelect(); addForm.style.display = 'none';
+      bossName.value=''; normalFile.value=''; damageFile.value='';
+      alert('Saved locally. Select and Publish or Next Boss.');
+    } catch(e){ console.error(e); alert('Failed to save. Try smaller PNGs.'); }
+  });
+
+  delBtn.addEventListener('click', ()=> {
+    const k = bossSelect.value; if (!k) { alert('No boss'); return; }
+    if (!confirm('Delete ' + (bosses[k].name||k) + '?')) return;
+    delete bosses[k]; saveBosses(); populateSelect();
+  });
+
+  publishBtn.addEventListener('click', ()=> {
+    const k = bossSelect.value; if (!k) { alert('No boss selected'); return; }
+    const payload = { name: bosses[k].name||k, normalData: bosses[k].normalData||bosses[k].normalUrl||null, damageData: bosses[k].damageData||bosses[k].damageUrl||null, maxHealth: parseInt(maxHp.value,10)||1000, timestamp: Date.now() };
+    localStorage.setItem(KEY_PUBLISHED, JSON.stringify(payload));
+    loadPublished(payload);
+    alert('Published locally. Use "Upload to GitHub" to push to Pages automatically.');
+  });
+
+  // Next boss: publish locally and attempt auto-upload if token present
+  async function nextBoss(auto=false){
+    const keys = Object.keys(bosses);
+    if (!keys.length){ alert('No bosses'); return; }
+    const cur = bossSelect.value;
+    let idx = keys.indexOf(cur);
+    idx = (idx + 1) % keys.length;
+    bossSelect.value = keys[idx];
+    const payload = { name: bosses[keys[idx]].name||keys[idx], normalData: bosses[keys[idx]].normalData||bosses[keys[idx]].normalUrl||null, damageData: bosses[keys[idx]].damageData||bosses[keys[idx]].damageUrl||null, maxHealth: parseInt(maxHp.value,10)||1000, timestamp: Date.now() };
+    localStorage.setItem(KEY_PUBLISHED, JSON.stringify(payload));
+    loadPublished(payload);
+    // attempt auto-upload if token exists
+    const token = localStorage.getItem(KEY_GHTOKEN);
+    const owner = ghOwner.value.trim() || ghOwner.placeholder;
+    const repo = ghRepo.value.trim() || ghRepo.placeholder;
+    if (token) {
+      try {
+        await uploadPublishedToGitHub({ owner, repo, token, contentObj: payload, commitMessage: `Publish ${payload.name} @ ${Date.now()}` });
+        alert('published.json uploaded to GitHub Pages. Viewer will pick it up shortly.');
+      } catch (err) {
+        console.error(err);
+        alert('Auto-upload failed: ' + err.message + '. published.json saved locally.');
+        downloadPublishedJson(); // fallback: download so user can upload manually
+      }
+    } else {
+      downloadPublishedJson();
+      if (!auto) alert('Published locally and downloaded published.json for manual upload.');
+    }
+  }
+  nextBtn.addEventListener('click', ()=> nextBoss(false));
+
+  prevBtn.addEventListener('click', ()=> {
+    const keys = Object.keys(bosses); if (!keys.length) return;
+    const cur = bossSelect.value; let idx = keys.indexOf(cur); idx = (idx - 1 + keys.length) % keys.length; bossSelect.value = keys[idx];
+  });
+
+  function downloadPublishedJson(){
+    const pub = localStorage.getItem(KEY_PUBLISHED);
+    if (!pub){ alert('Nothing published'); return; }
+    const blob = new Blob([JSON.stringify(JSON.parse(pub),null,2)], {type:'application/json'});
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'published.json'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href);
+  }
+  downloadPublished.addEventListener('click', downloadPublishedJson);
+
+  saveJson.addEventListener('click', ()=> { localStorage.setItem(KEY_JSON, jsonUrl.value || DEFAULT_JSON); alert('Saved'); });
+
+  // Initial viewer load
+  await fetchPublishedOnce();
+  if (!published){
+    const localPub = localStorage.getItem(KEY_PUBLISHED);
+    if (localPub) try{ loadPublished(JSON.parse(localPub)); }catch(e){}
+  }
   if (!published){
     const keys = Object.keys(bosses);
-    if (keys.length){
-      bossImg.src = getNormalSrc(keys[0]);
-      bossState.max = parseInt(healthInput.value,10) || 1000;
-      bossState.health = bossState.max;
-      setHealthUI();
-    } else {
-      bossImg.src = TRANSPARENT;
-      bossState.max = 1000; bossState.health = 1000; setHealthUI();
-    }
+    if (keys.length){ bossImg.src = bosses[keys[0]].normalData||bosses[keys[0]].normalUrl||TRANSPARENT; bossState.max = parseInt(maxHp.value,10)||1000; bossState.health = bossState.max; setHealthUI(); }
+    else { bossImg.src = TRANSPARENT; bossState.max = 1000; bossState.health = 1000; setHealthUI(); }
   }
 
-  // Start polling in viewer mode so Studio updates automatically when you upload published.json
-  if (!IS_ADMIN) setTimeout(()=>pollPublished(), 2000);
+  // Start polling in viewer mode
+  if (!IS_ADMIN) setTimeout(()=>pollPublished(5000), 1500);
 
-  /* Expose small debug helpers on window for convenience */
-  window.__bossOverlay = {
-    bosses: ()=>JSON.parse(localStorage.getItem(KEY_BOSSES)||'{}'),
-    published: ()=>JSON.parse(localStorage.getItem(KEY_PUBLISHED)||'null'),
-    applyDamage: applyDamage,
-    reloadPublished: fetchPublishedOnce
-  };
+  // Expose debug helpers
+  window.__autoBoss = { bosses: ()=>JSON.parse(localStorage.getItem(KEY_BOSSES)||'{}'), published: ()=>JSON.parse(localStorage.getItem(KEY_PUBLISHED)||'null'), applyDamage };
 
-}); // end DOMContentLoaded
+  // Admin convenience: click boss image to deal small damage
+  if (IS_ADMIN) bossImg.addEventListener('click', ()=> applyDamage(5,'Admin','Click'));
+});
 </script>
 </body>
 </html>
+
+
 
 
 
